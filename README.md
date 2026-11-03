@@ -1,5 +1,7 @@
 ﻿# AeroControl Ops Full Stack
 
+Proyecto académico de Calidad y Software.
+
 Prototipo funcional con frontend, API REST y base de datos. Incluye dos modos:
 
 - `server.mjs`: versiÃ³n anterior con SQLite.
