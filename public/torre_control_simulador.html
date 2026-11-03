@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AeroControl | Vigilancia de superficie</title>
+  <link rel="stylesheet" href="/surface-radar.css">
+  <script src="/vendor/xstate.umd.min.js" defer></script>
+  <script src="/vendor/lucide.min.js" defer></script>
+  <script type="module">
+    import('/surface-radar.js').catch(error => {
+      console.error('No se pudo cargar el radar:', error);
+      const notice = document.getElementById('notice');
+      if (notice) {
+        notice.textContent = 'No se pudo cargar el radar. Recarga la página.';
+        notice.classList.add('visible');
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="surface-app">
+    <header class="toolbar">
+      <div class="brand"><i data-lucide="radar" aria-hidden="true"></i><div><h1>Vigilancia de superficie</h1><span>LIM / SPJC <b>SIMULACIÓN A-SMGCS</b></span></div></div>
+      <div class="live-time" aria-label="Hora actual de Lima"><i data-lucide="clock-3" aria-hidden="true"></i><div><span id="simClock">--:--:--</span><small>Hora Lima</small></div></div>
+    </header>
+    <div class="statusbar"><span id="sourceStatus">Escenario de demostración</span><span id="motionStatus">Operación automática · tiempo real</span><span><b id="activeCount">0</b> activos</span><span><b id="completedCount">0</b> completados</span></div>
+    <main class="workspace">
+      <section class="map-area" aria-label="Mapa de superficie aeroportuaria">
+        <div class="runway-strip"><div><span class="runway-name">RWY 16</span><strong id="runwayState">LIBRE</strong><span id="runwayDetail">Sin autorización activa</span></div><label class="switch-label"><input type="checkbox" id="runwayClosed" role="switch"><span class="switch" aria-hidden="true"></span>Cerrar pista</label></div>
+        <div class="map-viewport" id="mapViewport">
+          <canvas id="surfaceMap" aria-label="Plano de pista, calles A y B y cinco posiciones. Selecciona los vuelos en la lista de tráfico."></canvas>
+          <div class="map-ident"><span>SUPERFICIE / LIMA</span><small>Posiciones y trayectorias simuladas</small></div>
+          <div class="map-tools"><button class="icon-button" id="zoomIn" aria-label="Acercar mapa" title="Acercar"><i data-lucide="plus"></i></button><button class="icon-button" id="zoomOut" aria-label="Alejar mapa" title="Alejar"><i data-lucide="minus"></i></button><button class="icon-button" id="fitMap" aria-label="Ajustar mapa" title="Ajustar mapa"><i data-lucide="maximize"></i></button></div>
+          <div id="mapEmpty" class="empty-overlay" hidden>No hay vuelos activos en el sistema.</div>
+        </div>
+        <div class="map-footer"><div class="legend"><span><b class="dot arrival"></b>Llegada</span><span><b class="dot departure"></b>Salida</span><span><b class="dot alert"></b>Prioridad</span><label><input type="checkbox" id="showRoutes" checked>Ruta seleccionada</label></div><span>Esquema sin escala geográfica</span></div>
+      </section>
+      <aside class="operations">
+        <section class="selected-flight" aria-labelledby="selectedCode">
+          <div class="section-eyebrow">OBJETIVO SELECCIONADO <span id="selectedKind"></span></div>
+          <h2 id="selectedCode">Sin selección</h2>
+          <p id="selectedRoute">Selecciona un vuelo.</p>
+          <div id="selectedPhase" class="phase">Sin objetivo</div>
+          <dl class="flight-data"><div><dt>Posición simulada</dt><dd id="selectedStand">—</dd></div><div><dt>Puerta del sistema</dt><dd id="selectedGate">—</dd></div><div><dt>Velocidad sim.</dt><dd id="selectedSpeed">—</dd></div><div><dt>Rumbo sim.</dt><dd id="selectedHeading">—</dd></div></dl>
+          <p id="clearance" class="clearance">Sin autorización activa.</p>
+          <div class="flight-actions"><button id="holdFlight" disabled><i data-lucide="hand"></i><span>Mantener</span></button><button id="priorityFlight" disabled><i data-lucide="flag"></i><span>Prioridad</span></button></div>
+        </section>
+        <nav class="tabs" aria-label="Información operativa" role="tablist"><button id="tab-traffic" role="tab" aria-selected="true" aria-controls="traffic-panel" data-tab="traffic">Tráfico <span id="trafficCount">0</span></button><button id="tab-sequence" role="tab" aria-selected="false" aria-controls="sequence-panel" data-tab="sequence" tabindex="-1">Secuencia</button><button id="tab-events" role="tab" aria-selected="false" aria-controls="events-panel" data-tab="events" tabindex="-1">Eventos</button></nav>
+        <section id="traffic-panel" class="tab-panel" role="tabpanel" aria-labelledby="tab-traffic"><label class="search"><i data-lucide="search" aria-hidden="true"></i><input id="searchFlight" type="search" placeholder="Buscar vuelo o ruta" aria-label="Buscar vuelo o ruta" maxlength="100"></label><div id="trafficList" class="scroll-list"></div></section>
+        <section id="sequence-panel" class="tab-panel" role="tabpanel" aria-labelledby="tab-sequence" hidden><div class="list-heading">Próximas solicitudes <span id="queueCount">0</span></div><div id="sequenceList" class="scroll-list"></div></section>
+        <section id="events-panel" class="tab-panel" role="tabpanel" aria-labelledby="tab-events" hidden><div class="list-heading">Registro de autorizaciones</div><div id="eventList" class="scroll-list"></div></section>
+      </aside>
+    </main>
+    <footer class="system-footer"><span><i data-lucide="shield-check"></i>Control de ocupación de pista</span><span id="groundStatus">Rodaje disponible</span><span>Uso académico · sin datos ADS-B</span></footer>
+  </div>
+  <div id="notice" role="status" aria-live="polite"></div>
+</body>
+</html>

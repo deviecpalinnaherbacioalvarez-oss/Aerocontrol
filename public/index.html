@@ -1,0 +1,4739 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AeroControl Ops - Gestión de Operaciones Aeroportuarias</title>
+  <style>
+    :root {
+      --primary: #570026;
+      --secondary: #9d174d;
+      --accent: #0891b2;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --blue: #2563eb;
+      --shadow: 0 16px 38px rgba(15, 23, 42, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+    }
+
+    aside {
+      background: linear-gradient(180deg, var(--primary), #3b071f);
+      color: #fff;
+      padding: 20px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .brand {
+      text-align: center;
+      padding: 10px 8px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.14);
+    }
+
+    .logo {
+      width: 118px;
+      height: 118px;
+      border-radius: 999px;
+      margin: 0 auto 12px;
+      background: #fff;
+      box-shadow: 0 14px 26px rgba(0,0,0,.18);
+      overflow: hidden;
+      padding: 5px;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.1;
+      letter-spacing: .02em;
+    }
+
+    .brand p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,.65);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+    }
+
+    nav {
+      display: grid;
+      gap: 7px;
+    }
+
+    nav button,
+    .logout {
+      border: 0;
+      width: 100%;
+      color: rgba(255,255,255,.82);
+      background: transparent;
+      border-radius: 8px;
+      padding: 12px 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font: inherit;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    nav button:hover,
+    nav button.active,
+    .logout:hover {
+      background: rgba(255,255,255,.13);
+      color: #fff;
+    }
+
+    nav button.active {
+      background: var(--secondary);
+      box-shadow: inset 3px 0 0 #f9a8d4;
+    }
+
+    .user-card {
+      margin-top: auto;
+      border-top: 1px solid rgba(255,255,255,.14);
+      padding: 16px 10px 4px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--secondary);
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .user strong,
+    .user span {
+      display: block;
+    }
+
+    .user span {
+      color: rgba(255,255,255,.6);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      height: 68px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 0 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .header-title h2 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .header-title span {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-search {
+      display: flex;
+      align-items: stretch;
+    }
+
+    .search {
+      width: 270px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+    }
+
+    .header-search .search {
+      width: 230px;
+      border-radius: 999px 0 0 999px;
+    }
+
+    .header-search .btn {
+      border-radius: 0 999px 999px 0;
+      padding-inline: 16px;
+    }
+
+    .system-state {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--green);
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(21,128,61,.12);
+    }
+
+    .bell {
+      position: relative;
+      border: 0;
+      background: #f8fafc;
+      border-radius: 999px;
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .bell span {
+      position: absolute;
+      top: -3px;
+      right: -2px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--red);
+      color: #fff;
+      font-size: 11px;
+      display: grid;
+      place-items: center;
+      border: 2px solid #fff;
+    }
+
+    .content {
+      padding: 26px;
+      display: grid;
+      gap: 22px;
+    }
+
+    .view { display: grid; gap: 22px; }
+    .hidden { display: none; }
+    .app.hidden,
+    .auth-screen.hidden,
+    .auth-form.hidden {
+      display: none;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      gap: 16px;
+    }
+
+    .card,
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .card {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      min-height: 126px;
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: #fdf2f8;
+      color: var(--primary);
+    }
+
+    .icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .icon img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .icon.kpi-image {
+      overflow: hidden;
+      background: #fff7d1;
+      border: 1px solid #fde68a;
+    }
+
+    .icon.kpi-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .icon.kpi-line img {
+      width: 30px;
+      height: 30px;
+      object-fit: contain;
+    }
+
+    .trend {
+      font-size: 12px;
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .trend.down { color: var(--red); }
+    .trend.warn { color: var(--amber); }
+
+    .card label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .card strong {
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .grid {
+      display: grid;
+      gap: 20px;
+    }
+
+    .grid.main {
+      grid-template-columns: minmax(0, 1.35fr) minmax(310px, .65fr);
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-head h3 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .panel-body {
+      padding: 20px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn.primary { background: var(--primary); color: #fff; }
+    .btn.secondary { background: #f1f5f9; color: #334155; }
+    .btn.danger { background: #fee2e2; color: var(--red); }
+    .btn.small { padding: 7px 10px; font-size: 12px; }
+    .btn:disabled { opacity: .58; cursor: not-allowed; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .ok { background: #dcfce7; color: var(--green); }
+    .warn { background: #fef3c7; color: var(--amber); }
+    .bad { background: #fee2e2; color: var(--red); }
+    .info { background: #dbeafe; color: var(--blue); }
+    .neutral { background: #f1f5f9; color: #475569; }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .alert {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      display: grid;
+      gap: 7px;
+      background: #fff;
+    }
+
+    .alert strong {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+    }
+
+    .report-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .report-card-head strong {
+      flex: 1;
+    }
+
+    .report-edit-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, .42);
+      backdrop-filter: blur(3px);
+    }
+
+    .report-edit-panel {
+      width: min(760px, 96vw);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+      overflow: hidden;
+    }
+
+    .report-edit-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+    }
+
+    .report-edit-head h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .report-edit-body {
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+    }
+
+    .report-edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 14px;
+    }
+
+    .report-edit-body label {
+      display: grid;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .report-edit-body input,
+    .report-edit-body select,
+    .report-edit-body textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 11px 12px;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .report-edit-body textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .report-source-box {
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .comms-panel {
+      width: min(860px, 96vw);
+    }
+
+    .comms-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .comms-summary div {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .comms-summary span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .comms-summary strong {
+      display: block;
+      margin-top: 5px;
+      color: var(--ink);
+      font-size: 16px;
+    }
+
+    .comms-thread {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f8fafc, #fff);
+    }
+
+    .comms-bubble {
+      max-width: 82%;
+      border-radius: 12px;
+      padding: 11px 13px;
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .comms-bubble.tower {
+      justify-self: start;
+      background: #eef2ff;
+      color: #1e1b4b;
+      border: 1px solid #c7d2fe;
+    }
+
+    .comms-bubble.aircraft {
+      justify-self: end;
+      background: #ecfdf5;
+      color: #064e3b;
+      border: 1px solid #bbf7d0;
+    }
+
+    @media (max-width: 760px) {
+      .report-edit-grid,
+      .comms-summary { grid-template-columns: 1fr; }
+    }
+
+    .alert p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .capacity {
+      display: grid;
+      gap: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .bar {
+      height: 9px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--primary);
+      transition: width .3s;
+    }
+
+    .weather {
+      background: linear-gradient(135deg, var(--primary), #7f1d4b);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .weather:after {
+      content: "";
+      position: absolute;
+      right: -14px;
+      bottom: -34px;
+      font-size: 150px;
+      opacity: .08;
+    }
+
+    .weather .panel-body {
+      position: relative;
+      z-index: 1;
+    }
+
+    .radar {
+      min-height: 360px;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at center, #103548, #081926 70%);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .radar-screen {
+      width: min(310px, 80vw);
+      aspect-ratio: 1;
+      border-radius: 999px;
+      position: relative;
+      border: 2px solid rgba(125, 211, 252, .58);
+      background:
+        radial-gradient(circle, transparent 0 24%, rgba(34,211,238,.2) 24.6% 25%, transparent 25.4% 49%, rgba(34,211,238,.2) 49.6% 50%, transparent 50.4% 74%, rgba(34,211,238,.18) 74.6% 75%, transparent 75.4%),
+        linear-gradient(90deg, transparent 49.5%, rgba(125,211,252,.4) 50%, transparent 50.5%),
+        linear-gradient(0deg, transparent 49.5%, rgba(125,211,252,.4) 50%, transparent 50.5%),
+        radial-gradient(circle, rgba(14,116,144,.22), rgba(15,23,42,.48));
+      box-shadow: inset 0 0 28px rgba(34,211,238,.18), 0 0 32px rgba(34,211,238,.14);
+    }
+
+    .radar-screen:before {
+      content: "";
+      position: absolute;
+      inset: 50% 50% 0 50%;
+      width: 50%;
+      height: 50%;
+      transform-origin: 0 0;
+      background: linear-gradient(45deg, rgba(34,211,238,.6), rgba(34,211,238,0) 68%);
+      border-top: 2px solid rgba(103,232,249,.9);
+      animation: sweep 4s linear infinite;
+    }
+
+    .radar-screen:after {
+      content: "";
+      position: absolute;
+      inset: 50%;
+      width: 10px;
+      height: 10px;
+      transform: translate(-50%, -50%);
+      border-radius: 999px;
+      background: #67e8f9;
+      box-shadow: 0 0 18px #67e8f9;
+    }
+
+    .blip {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      background: #a7f3d0;
+      box-shadow: 0 0 12px #34d399;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    .blip:after {
+      content: attr(data-code);
+      position: absolute;
+      left: 14px;
+      top: -8px;
+      color: #d9f99d;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .b1 { left: 62%; top: 23%; }
+    .b2 { left: 36%; top: 34%; animation-delay: .3s; }
+    .b3 { left: 70%; top: 62%; animation-delay: .7s; }
+    .b4 { left: 26%; top: 68%; animation-delay: 1s; }
+    .b5 { left: 49%; top: 78%; animation-delay: 1.25s; }
+
+    @keyframes sweep { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { opacity: .55; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .traffic-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr);
+      gap: 20px;
+    }
+    .tower-sim-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .tower-sim-frame-wrap {
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #cbd9d1;
+      background: #172923;
+    }
+
+    .tower-sim-frame {
+      display: block;
+      width: 100%;
+      height: 820px;
+      border: 0;
+      background: #0b1016;
+    }
+
+    .traffic-live-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .tower-sim-frame { height: 1250px; }
+      .traffic-live-grid { grid-template-columns: 1fr; }
+    }
+
+    .airport-map {
+      min-height: 520px;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(34,211,238,.18) 0 2px, transparent 3px),
+        radial-gradient(circle at 50% 50%, transparent 0 18%, rgba(34,211,238,.16) 18.3% 18.7%, transparent 19% 36%, rgba(34,211,238,.13) 36.3% 36.7%, transparent 37% 54%, rgba(34,211,238,.11) 54.3% 54.7%, transparent 55% 72%, rgba(34,211,238,.09) 72.3% 72.7%, transparent 73%),
+        linear-gradient(90deg, transparent 49.8%, rgba(125,211,252,.22) 50%, transparent 50.2%),
+        linear-gradient(0deg, transparent 49.8%, rgba(125,211,252,.22) 50%, transparent 50.2%),
+        radial-gradient(circle at center, #103548, #081926 72%);
+      border: 1px solid #164e63;
+      box-shadow: inset 0 0 52px rgba(34,211,238,.12), 0 16px 34px rgba(15,23,42,.14);
+    }
+
+    .airport-map:before,
+    .airport-map:after {
+      content: "";
+      position: absolute;
+      z-index: 1;
+    }
+
+    .airport-map:before {
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 24% 35%, rgba(34,197,94,.32) 0 8%, transparent 8.5%),
+        radial-gradient(ellipse at 34% 55%, rgba(34,197,94,.26) 0 10%, transparent 10.5%),
+        radial-gradient(ellipse at 52% 31%, rgba(34,197,94,.28) 0 11%, transparent 11.5%),
+        radial-gradient(ellipse at 63% 58%, rgba(34,197,94,.23) 0 14%, transparent 14.5%),
+        radial-gradient(ellipse at 77% 39%, rgba(34,197,94,.25) 0 9%, transparent 9.5%);
+      opacity: .95;
+    }
+
+    .airport-map:after {
+      inset: 50% 50% 0 50%;
+      width: 50%;
+      height: 50%;
+      transform-origin: 0 0;
+      background: linear-gradient(45deg, rgba(34,211,238,.5), rgba(34,211,238,0) 70%);
+      border-top: 2px solid rgba(103,232,249,.85);
+      animation: sweep 5s linear infinite;
+      pointer-events: none;
+    }
+
+    .global-route {
+      position: absolute;
+      z-index: 2;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(191,219,254,.8), transparent);
+      transform-origin: left center;
+      opacity: .7;
+    }
+
+    .route-1 { left: 19%; top: 37%; width: 36%; transform: rotate(18deg); }
+    .route-2 { left: 44%; top: 34%; width: 31%; transform: rotate(36deg); }
+    .route-3 { left: 31%; top: 61%; width: 42%; transform: rotate(-16deg); }
+
+    .global-label {
+      position: absolute;
+      z-index: 3;
+      color: #bae6fd;
+      background: rgba(15,23,42,.72);
+      border: 1px solid rgba(125,211,252,.34);
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .stand-zone {
+      position: absolute;
+      right: 26px;
+      bottom: 24px;
+      width: 220px;
+      height: 168px;
+      border-radius: 12px;
+      border: 2px solid rgba(250,204,21,.8);
+      background: rgba(15,23,42,.28);
+      backdrop-filter: blur(2px);
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      padding: 14px;
+      z-index: 2;
+    }
+
+    .stand {
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.55);
+      background: rgba(255,255,255,.14);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .tower-camera {
+      position: absolute;
+      left: 24px;
+      top: 22px;
+      z-index: 3;
+      background: rgba(15,23,42,.76);
+      color: #e0f2fe;
+      border: 1px solid rgba(125,211,252,.5);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-width: 210px;
+      box-shadow: 0 14px 28px rgba(0,0,0,.25);
+    }
+
+    .tower-camera strong,
+    .tower-camera span {
+      display: block;
+    }
+
+    .tower-camera span {
+      color: #bae6fd;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .plane-track {
+      position: absolute;
+      z-index: 4;
+      width: 72px;
+      height: 72px;
+      transform: translate(-50%, -50%) rotate(var(--angle));
+      left: var(--x);
+      top: var(--y);
+      display: grid;
+      place-items: center;
+      color: #e0f2fe;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      filter: drop-shadow(0 0 10px rgba(34,211,238,.55));
+      animation: taxi 5s ease-in-out infinite alternate;
+    }
+
+    .plane-track:before {
+      content: "";
+      font-size: 42px;
+    }
+
+    .plane-track:after {
+      content: attr(data-code);
+      position: absolute;
+      left: 52px;
+      top: 8px;
+      background: rgba(15,23,42,.82);
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      transform: rotate(calc(var(--angle) * -1));
+      white-space: nowrap;
+    }
+
+    @keyframes taxi {
+      to { margin-left: 18px; margin-top: -8px; }
+    }
+
+    .traffic-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .mini-stat {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .mini-stat span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mini-stat strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 22px;
+    }
+
+    .form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+    .wide { grid-column: 1 / -1; }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      max-width: 340px;
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 16px;
+      border-radius: 10px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.25);
+      transform: translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      transition: .25s;
+      z-index: 10;
+      font-size: 14px;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .45);
+      display: none;
+      place-items: center;
+      padding: 20px;
+      z-index: 20;
+    }
+
+    .modal-backdrop.show { display: grid; }
+
+    .modal {
+      width: min(760px, 100%);
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.26);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h3 { margin: 0; }
+    .modal .panel-body { box-shadow: none; }
+
+    .flight-booking-modal {
+      width: min(980px, 100%);
+      border-radius: 10px;
+    }
+
+    .flight-booking-modal .modal-head {
+      padding: 22px 24px 14px;
+      border-bottom: 0;
+      align-items: flex-start;
+    }
+
+    .flight-booking-modal .modal-head h3 {
+      color: #09005d;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .flight-mode-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .flight-pill {
+      border: 1px solid #b8bdd1;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: #fff;
+      color: #4b5563;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .flight-pill.active {
+      border-color: #4f63ff;
+      background: #eef2ff;
+      color: #4054db;
+    }
+
+    .flight-close {
+      border: 1px solid #e11d48;
+      background: #fff;
+      color: #e11d48;
+      border-radius: 999px;
+      width: 46px;
+      height: 46px;
+      font-size: 22px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .flight-booking-body {
+      padding: 12px 24px 26px;
+    }
+
+    .flight-search-card {
+      display: grid;
+      gap: 20px;
+    }
+
+    .route-box {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid #575757;
+      border-radius: 8px;
+      overflow: visible;
+      background: #fff;
+    }
+
+    .route-field {
+      min-height: 94px;
+      padding: 22px 22px 18px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .route-field + .route-field {
+      border-left: 1px solid #575757;
+    }
+
+    .route-field label,
+    .flight-field label {
+      color: #09005d;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .route-field input,
+    .flight-field input,
+    .flight-field select {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      color: #1f2937;
+      font-size: 18px;
+      font-weight: 500;
+      outline: none;
+    }
+
+    .route-field input::placeholder,
+    .flight-field input::placeholder {
+      color: #8b8b8b;
+    }
+
+    .swap-route {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      width: 48px;
+      height: 48px;
+      border-radius: 999px;
+      border: 1px solid #e11d48;
+      background: #fff;
+      color: #e11d48;
+      font-size: 22px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .flight-form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px 10px;
+    }
+
+    .flight-field {
+      min-height: 70px;
+      border: 1px solid #575757;
+      border-radius: 8px;
+      padding: 13px 22px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+      background: #fff;
+    }
+
+    .flight-field.full { grid-column: 1 / -1; }
+
+    .flight-booking-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .incoming-panel {
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      margin: 0 0 16px;
+      background: linear-gradient(135deg, #eff6ff, #fff);
+      overflow: hidden;
+    }
+
+    .incoming-panel.hidden { display: none; }
+
+    .incoming-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #dbeafe;
+    }
+
+    .incoming-head h4 {
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .incoming-list {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px;
+    }
+
+    .incoming-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid #dbeafe;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .incoming-card strong {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .incoming-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .incoming-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 760px) {
+      .incoming-card { grid-template-columns: 1fr; }
+      .incoming-actions { justify-content: flex-start; }
+    }
+    tr[data-flight-detail] {
+      cursor: pointer;
+      transition: background .18s ease, box-shadow .18s ease;
+    }
+
+    tr[data-flight-detail]:hover {
+      background: #f8fafc;
+      box-shadow: inset 4px 0 0 var(--brand);
+    }
+
+    .flight-detail-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      justify-content: flex-end;
+      background: rgba(15, 23, 42, .42);
+      z-index: 30;
+    }
+
+    .flight-detail-backdrop.show { display: flex; }
+
+    .flight-detail-card {
+      width: min(430px, 100%);
+      height: 100%;
+      background: #eef3f8;
+      overflow-y: auto;
+      box-shadow: -22px 0 50px rgba(15, 23, 42, .26);
+      border-left: 1px solid #cbd5e1;
+      animation: detailIn .22s ease;
+    }
+
+    @keyframes detailIn {
+      from { transform: translateX(18px); opacity: .7; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .flight-detail-hero {
+      position: relative;
+      min-height: 190px;
+      padding: 18px;
+      color: #fff;
+      background: linear-gradient(135deg, rgba(0, 48, 82, .94), rgba(6, 95, 70, .88)), radial-gradient(circle at 72% 30%, rgba(255,255,255,.35), transparent 34%);
+      overflow: hidden;
+    }
+
+    .flight-detail-hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 68px;
+      background: linear-gradient(160deg, transparent 20%, rgba(255,255,255,.28) 21%, rgba(255,255,255,.28) 25%, transparent 26%), linear-gradient(0deg, rgba(15,23,42,.18), transparent);
+    }
+
+    .flight-detail-top {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .flight-code-large {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: .02em;
+    }
+
+    .flight-airline {
+      margin-top: 5px;
+      font-size: 13px;
+      opacity: .9;
+    }
+
+    .detail-close {
+      border: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .flight-route-display {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+      margin-top: 42px;
+      text-align: center;
+    }
+
+    .airport-code {
+      font-size: 42px;
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .airport-city {
+      margin-top: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+      opacity: .9;
+    }
+
+    .route-plane {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255,255,255,.92);
+      color: var(--brand);
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .flight-times {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border-bottom: 1px solid #cbd5e1;
+      background: #fff;
+    }
+
+    .flight-time-box {
+      padding: 12px 10px;
+      border-right: 1px solid #e2e8f0;
+      text-align: center;
+    }
+
+    .flight-time-box:last-child { border-right: 0; }
+
+    .flight-time-box span {
+      display: block;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .flight-time-box strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 18px;
+    }
+
+    .flight-progress {
+      padding: 12px 16px 16px;
+      background: #fff;
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    .flight-progress-track {
+      position: relative;
+      height: 8px;
+      margin: 9px 0;
+      border-radius: 999px;
+      background: #dbeafe;
+      overflow: hidden;
+    }
+
+    .flight-progress-track span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #0ea5e9, #16a34a);
+    }
+
+    .flight-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .detail-section {
+      margin: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .detail-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 13px;
+      background: #2477a6;
+      color: #fff;
+      font-weight: 950;
+      font-size: 13px;
+    }
+
+    .detail-section-title.green { background: #16856f; }
+    .detail-section-title.slate { background: #334155; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .detail-cell {
+      min-height: 58px;
+      padding: 11px 12px;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .detail-cell:nth-child(2n) { border-right: 0; }
+    .detail-cell:nth-last-child(-n+2) { border-bottom: 0; }
+
+    .detail-cell span {
+      display: block;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .detail-cell strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+
+    .detail-note {
+      padding: 11px 13px;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 760px) {
+      .flight-booking-modal .modal-head { display: grid; gap: 16px; }
+      .flight-mode-tabs { justify-content: flex-start; }
+      .route-box, .flight-form-grid { grid-template-columns: 1fr; }
+      .route-field + .route-field { border-left: 0; border-top: 1px solid #575757; }
+      .swap-route { top: 50%; }
+    }
+
+    .close {
+      border: 0;
+      background: #f1f5f9;
+      border-radius: 999px;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .auth-screen {
+      min-height: 100vh;
+      padding: 28px;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(157, 23, 77, .16), transparent 28%),
+        radial-gradient(circle at 85% 18%, rgba(8, 145, 178, .15), transparent 26%),
+        linear-gradient(135deg, #fff7fb, #f8fafc 52%, #eef7fb);
+    }
+
+    .auth-wrap {
+      width: min(1060px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, .9fr) minmax(360px, 1fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .auth-hero,
+    .auth-card {
+      background: rgba(255,255,255,.88);
+      border: 1px solid rgba(226,232,240,.9);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .auth-hero {
+      padding: 30px;
+      display: grid;
+      align-content: center;
+      gap: 18px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .auth-hero:after {
+      content: "";
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      border-radius: 999px;
+      right: -120px;
+      bottom: -130px;
+      background: radial-gradient(circle, rgba(87,0,38,.18), transparent 68%);
+    }
+
+    .auth-mark {
+      width: 92px;
+      height: 92px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 12px 24px rgba(15,23,42,.12);
+      padding: 5px;
+      overflow: hidden;
+    }
+
+    .auth-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+    }
+
+    .auth-hero h2 {
+      margin: 0;
+      color: var(--primary);
+      font-size: clamp(30px, 4vw, 46px);
+      line-height: 1.05;
+    }
+
+    .auth-hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .auth-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .auth-chips span {
+      border: 1px solid #fbcfe8;
+      background: #fdf2f8;
+      color: var(--primary);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .auth-card {
+      padding: 24px;
+    }
+
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .auth-tabs button {
+      border: 0;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 900;
+      color: #475569;
+      background: #f1f5f9;
+    }
+
+    .auth-tabs button.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .auth-form h3 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .auth-form .hint {
+      margin: -6px 0 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .auth-form .btn {
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .password-control {
+      position: relative;
+      display: block;
+    }
+
+    .password-control input {
+      padding-right: 78px;
+    }
+
+    .password-visibility {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--primary);
+      padding: 7px 8px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .security-note {
+      border-left: 3px solid var(--accent);
+      padding: 8px 10px;
+      background: #ecfeff;
+      color: #155e75;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .security-note.error {
+      border-left-color: var(--red);
+      background: #fef2f2;
+      color: var(--red);
+    }
+
+    .password-policy {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px 12px;
+      margin: 0;
+      padding: 10px 12px;
+      list-style: none;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+
+    .password-policy li {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .password-policy li::before { content: "○"; margin-right: 6px; }
+    .password-policy li.valid { color: var(--green); }
+    .password-policy li.valid::before { content: "✓"; }
+
+    .user-state-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .account-toggle {
+      display: inline-flex;
+      grid-template-columns: none;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .account-toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle-track {
+      width: 42px;
+      height: 24px;
+      padding: 3px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      transition: background .2s ease;
+    }
+
+    .toggle-track::after {
+      content: "";
+      display: block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 5px rgba(15, 23, 42, .22);
+      transition: transform .2s ease;
+    }
+
+    .account-toggle input:checked + .toggle-track { background: var(--green); }
+    .account-toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+    .account-toggle input:focus-visible + .toggle-track { outline: 3px solid rgba(8, 145, 178, .25); }
+    .account-toggle input:disabled + .toggle-track { opacity: .55; cursor: not-allowed; }
+
+
+    .user-admin-panel {
+      grid-column: 1 / -1;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr);
+      gap: 20px;
+    }
+
+    .profile-summary {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .profile-avatar {
+      width: 76px;
+      height: 76px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--primary);
+      color: #fff;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    @media (max-width: 1100px) {
+      .auth-wrap,
+  
+    .user-admin-panel {
+      grid-column: 1 / -1;
+    }
+
+    .profile-grid { grid-template-columns: 1fr; }
+      .app { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; }
+      nav { grid-template-columns: repeat(2, minmax(0, 1fr)); display: grid; }
+      .user-card { margin-top: 0; }
+      .metrics,
+      .grid.main,
+      .grid.two,
+      .grid.three,
+      .traffic-board,
+      header { height: auto; padding: 18px; flex-direction: column; align-items: stretch; }
+      .header-actions { flex-wrap: wrap; }
+      .header-search { width: 100%; }
+      .header-search .search { width: 100%; min-width: 0; }
+      .form { grid-template-columns: 1fr; }
+    }
+    /* AeroControl visual refresh: estilo corporativo inspirado en aerolineas */
+    :root {
+      --primary: #1b0088;
+      --secondary: #ed1650;
+      --accent: #4658df;
+      --bg: #f5f7fc;
+      --surface: #ffffff;
+      --ink: #101a3d;
+      --muted: #5d6b8a;
+      --line: #dde3ef;
+      --green: #108548;
+      --amber: #c76a00;
+      --red: #c01830;
+      --blue: #2557d6;
+      --shadow: 0 18px 45px rgba(16, 26, 61, .09);
+    }
+
+    body {
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 92% 4%, rgba(70, 88, 223, .12), transparent 30%),
+        linear-gradient(135deg, #f8f9ff 0%, #ffffff 48%, #eef3ff 100%);
+    }
+
+    aside {
+      background:
+        radial-gradient(circle at 50% 3%, rgba(237, 22, 80, .35), transparent 26%),
+        linear-gradient(180deg, #1b0088 0%, #25006d 52%, #10004f 100%);
+      box-shadow: 12px 0 32px rgba(27, 0, 136, .14);
+    }
+
+    .brand {
+      border-bottom-color: rgba(255, 255, 255, .18);
+    }
+
+    .logo {
+      width: 126px;
+      height: 126px;
+      padding: 6px;
+      background: #fff;
+      border: 5px solid rgba(255, 255, 255, .34);
+      box-shadow: 0 20px 42px rgba(0, 0, 0, .22);
+    }
+
+    .brand h1 {
+      font-size: 22px;
+      letter-spacing: .01em;
+    }
+
+    .brand p {
+      color: rgba(255,255,255,.78);
+      letter-spacing: .18em;
+    }
+
+    nav button,
+    .logout {
+      border-radius: 14px;
+      color: rgba(255,255,255,.86);
+      transition: background .18s ease, transform .18s ease, color .18s ease;
+    }
+
+    nav button:hover,
+    .logout:hover {
+      background: rgba(255,255,255,.12);
+      transform: translateX(2px);
+    }
+
+    nav button.active {
+      background: linear-gradient(90deg, var(--secondary), #b60050);
+      box-shadow: inset 4px 0 0 #ffffff, 0 10px 22px rgba(237, 22, 80, .28);
+      color: #fff;
+    }
+
+    .avatar {
+      background: linear-gradient(135deg, var(--secondary), #ff6b9b);
+      box-shadow: 0 8px 20px rgba(237, 22, 80, .22);
+    }
+
+    header {
+      height: 74px;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 28px rgba(16, 26, 61, .06);
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .card,
+    .panel,
+    .report-edit-panel,
+    .flight-booking-modal {
+      border-color: #dce4f2;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(16, 26, 61, .08);
+    }
+
+    .card {
+      min-height: 132px;
+      background: linear-gradient(180deg, #fff, #fbfcff);
+    }
+
+    .card:hover,
+    .panel:hover {
+      box-shadow: 0 24px 56px rgba(16, 26, 61, .11);
+    }
+
+    .card label,
+    .panel-head h3,
+    .report-edit-head h3 {
+      color: var(--ink);
+    }
+
+    .card label {
+      font-size: 14px;
+      color: #536384;
+    }
+
+    .card strong {
+      color: #071536;
+      font-size: 34px;
+    }
+
+    .icon {
+      background: #f7eafb;
+      color: var(--primary);
+      border-radius: 16px;
+    }
+
+    .icon.kpi-image {
+      border: 1px solid #ffd34d;
+      background: #ffd437;
+    }
+
+    .panel-head,
+    .report-edit-head {
+      background: linear-gradient(180deg, #fff, #f8faff);
+    }
+
+    .btn {
+      border-radius: 14px;
+      transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(27, 0, 136, .18);
+    }
+
+    .btn.secondary {
+      background: #eef2f8;
+      color: #243453;
+    }
+
+    .btn.danger {
+      background: #fff0f3;
+      color: var(--red);
+    }
+
+    th {
+      background: #f5f7fb;
+      color: #334466;
+      letter-spacing: .03em;
+    }
+
+    tr:hover td {
+      background: #f8faff;
+    }
+
+    .badge.ok,
+    .ok { background: #dff8e8; color: #027a3b; }
+    .badge.warn,
+    .warn { background: #fff1cc; color: #a85600; }
+    .badge.bad,
+    .bad { background: #ffe4ea; color: #b2122b; }
+    .badge.info,
+    .info { background: #e5ecff; color: #2448c7; }
+    .neutral { background: #eef2f8; color: #41516f; }
+
+    input,
+    select,
+    textarea {
+      accent-color: var(--accent);
+    }
+
+    .report-card,
+    .alert {
+      border-radius: 16px;
+      border-color: #dce4f2;
+      background: #fff;
+    }
+
+    .report-edit-backdrop {
+      background: rgba(16, 26, 61, .48);
+      backdrop-filter: blur(5px);
+    }
+
+    .report-edit-body input,
+    .report-edit-body select,
+    .report-edit-body textarea {
+      border-color: #cfd8ea;
+      border-radius: 14px;
+    }
+
+    .report-source-box {
+      background: #f7f9ff;
+      border-color: #c9d4ef;
+    }
+
+    .auth-screen {
+      background:
+        radial-gradient(circle at 18% 18%, rgba(237, 22, 80, .13), transparent 28%),
+        radial-gradient(circle at 88% 18%, rgba(70, 88, 223, .16), transparent 30%),
+        linear-gradient(135deg, #f9f7ff 0%, #fff 52%, #eff4ff 100%);
+    }
+
+    .auth-wrap {
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(16, 26, 61, .16);
+    }
+
+    .auth-hero {
+      background:
+        linear-gradient(140deg, rgba(255,255,255,.95), rgba(255,255,255,.75)),
+        radial-gradient(circle at 86% 88%, rgba(237, 22, 80, .18), transparent 30%);
+    }
+
+    .auth-hero h2 {
+      color: var(--primary);
+    }
+
+    .auth-chips span,
+    .flight-pill.active {
+      background: #eef1ff;
+      color: var(--accent);
+      border-color: #9faaff;
+    }
+
+    .auth-tabs button.active {
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      color: #fff;
+    }
+
+    .flight-booking-modal {
+      border-radius: 22px;
+    }
+
+    .flight-booking-modal .modal-head h3 {
+      color: var(--primary);
+      font-size: 30px;
+    }
+
+    .flight-pill {
+      border-color: #cbd3e4;
+      color: #31405e;
+    }
+
+    .flight-close {
+      border-color: var(--secondary);
+      color: var(--secondary);
+    }
+
+    .route-box,
+    .flight-field {
+      border-color: #c9d2e5;
+      border-radius: 18px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.5);
+    }
+
+    .route-field + .route-field {
+      border-left-color: #c9d2e5;
+    }
+
+    .route-field label,
+    .flight-field label {
+      color: var(--primary);
+    }
+
+    .swap-route {
+      border-color: var(--secondary);
+      color: var(--secondary);
+      box-shadow: 0 10px 24px rgba(237, 22, 80, .12);
+    }
+
+    .incoming-panel {
+      border-color: #cad6ff;
+      background: linear-gradient(135deg, #eef2ff, #ffffff);
+    }
+
+    .incoming-card {
+      border-radius: 16px;
+    }
+
+    .flight-detail-card {
+      border-radius: 22px;
+      box-shadow: 0 28px 80px rgba(16, 26, 61, .28);
+    }
+
+    .flight-detail-hero {
+      background-color: #1b2a5b;
+    }
+
+    @media (max-width: 900px) {
+      .content { padding: 18px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .app { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; }
+    }
+    .role-tools-panel .panel-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .role-tools-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .role-tool-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      background: linear-gradient(180deg, #fff, #fbfcff);
+      display: grid;
+      gap: 12px;
+      min-height: 190px;
+    }
+    .role-tool-card h4 { margin: 0; color: var(--primary); font-size: 16px; }
+    .role-tool-card p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 13px; }
+    .role-action-list, .role-mini-list { display: grid; gap: 8px; }
+    .role-task {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border: 1px solid #dce4f2; border-radius: 14px;
+      background: #fff; font-size: 13px; font-weight: 800;
+    }
+    .role-map {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; min-height: 110px;
+      padding: 10px; border: 1px dashed #b9c5dc; border-radius: 16px;
+      background: linear-gradient(135deg, #eef2ff, #fff);
+    }
+    .role-map button {
+      border: 1px solid #ccd6eb; border-radius: 14px; background: #fff;
+      color: var(--primary); font-weight: 900; cursor: pointer;
+    }
+    .role-kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .role-kanban div, .timeline-item, .role-export-box {
+      border: 1px solid #dce4f2; border-radius: 14px; background: #fff; padding: 10px;
+    }
+    .role-kanban strong { display: block; font-size: 24px; color: var(--primary); }
+    .timeline-item { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+    .weather-overlay { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .weather-overlay span {
+      border-radius: 14px; padding: 10px; background: #eef2ff;
+      color: var(--primary); font-weight: 900; text-align: center;
+    }
+    .what-if-control input { width: 100%; }
+    @media (max-width: 1100px) { .role-tools-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-wrap">
+      <div class="auth-hero">
+        <div class="auth-mark"><img src="aerocontrol_ops_logo.png" alt="AeroControl Ops"></div>
+        <h2>Control aeroportuario con acceso seguro</h2>
+        <p>Ingreso de operadores, supervisores y administradores para monitorear vuelos, incidencias, recursos y reportes desde una base de datos MySQL.</p>
+        <div class="auth-chips">
+          <span>Frontend HTML</span>
+          <span>Backend Node</span>
+          <span>MySQL Workbench</span>
+          <span>Perfil de usuario</span>
+        </div>
+      </div>
+
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="active" id="showLogin" type="button">Iniciar sesión</button>
+          <button id="showRegister" type="button">Registrarse</button>
+        </div>
+
+        <form class="auth-form" id="loginForm">
+          <h3>Bienvenido</h3>
+          <label>DNI<input id="loginDni" inputmode="numeric" maxlength="8" autocomplete="username" required placeholder="12345678"></label>
+          <label>Contraseña
+            <span class="password-control">
+              <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+              <button class="password-visibility" id="toggleLoginPassword" type="button" aria-label="Mostrar contraseña">Mostrar</button>
+            </span>
+          </label>
+          <div class="security-note" id="loginSecurityMessage" aria-live="polite">Máximo 5 intentos. Al alcanzar el límite, el acceso se bloquea durante 15 minutos.</div>
+          <button class="btn primary" id="loginSubmitButton">Entrar al sistema</button>
+        </form>
+
+        <form class="auth-form hidden" id="registerForm">
+          <h3>Crear usuario operativo</h3>
+          <p class="hint">Registra personal autorizado para operar el dashboard.</p>
+          <div class="form">
+            <label>Nombre<input id="registerName" required placeholder="Nombre"></label>
+            <label>Apellido<input id="registerLastName" required placeholder="Apellido"></label>
+            <label>DNI<input id="registerDni" inputmode="numeric" maxlength="8" required placeholder="8 dígitos"></label>
+            <label>Celular<input id="registerPhone" inputmode="numeric" maxlength="9" required placeholder="9 dígitos"></label>
+            <label class="wide">Correo<input id="registerEmail" type="email" required placeholder="usuario@correo.com"></label>
+            <label>Rol<select id="registerRole"><option>Operador</option><option>Supervisor</option><option>Administrador</option></select></label>
+            <label>Área<select id="registerArea" required></select></label>
+            <label class="wide">Contraseña
+              <span class="password-control">
+                <input id="registerPassword" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Crea una contraseña segura">
+                <button class="password-visibility" id="toggleRegisterPassword" type="button" aria-label="Mostrar contraseña">Mostrar</button>
+              </span>
+            </label>
+            <label class="wide">Confirmar contraseña<input id="registerPasswordConfirm" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Repite la contraseña"></label>
+            <ul class="password-policy wide" id="registerPasswordPolicy" aria-live="polite"></ul>
+          </div>
+          <button class="btn primary">Crear cuenta</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <div class="app hidden" id="appShell">
+    <aside>
+      <div class="brand">
+        <div class="logo">
+          <img src="aerocontrol_ops_logo.png" alt="AeroControl Ops">
+        </div>
+        <h1>AEROCONTROL OPS</h1>
+        <p>Gestión de operaciones</p>
+      </div>
+
+      <nav aria-label="Navegación principal">
+        <button class="active" data-view="dashboard">Panel de control</button>
+        <button data-view="vuelos">Vuelos en tiempo real</button>
+        <button data-view="programacion">Programación</button>
+        <button data-view="trafico">Control de tráfico</button>
+        <button data-view="recursos">Recursos operativos</button>
+        <button data-view="reportes">Reportes</button>
+        <button data-view="perfil">Perfil de usuario</button>
+      </nav>
+
+      <div class="user-card">
+        <button class="logout" id="simulateIncident">Simular incidencia</button>
+        <button class="logout" id="logoutBtn">Cerrar sesión</button>
+        <div class="user">
+          <div class="avatar" id="userAvatar">AD</div>
+          <div>
+            <strong id="userName">Admin AeroControl</strong>
+            <span id="userRole">Administrador</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div class="header-title">
+          <h2 id="viewTitle">Resumen de operaciones</h2>
+          <span id="viewSubtitle">Monitoreo activo de vuelos, recursos, tráfico e incidencias.</span>
+        </div>
+        <div class="header-actions">
+          <div class="header-search">
+            <input class="search" id="globalSearch" placeholder="Buscar vuelo, ciudad, puerta o estado" aria-label="Buscar vuelo, ciudad, puerta o estado">
+            <button class="btn primary" id="globalSearchButton" type="button">Buscar</button>
+          </div>
+          <span class="system-state"><span class="dot"></span> Sistema activo</span>
+          <button class="bell" id="bell" title="Ver alertas">!<span id="alertCount">3</span></button>
+          <div>
+            <strong id="dateText">12 JUN 2026</strong><br>
+            <span id="timeText" style="color:var(--muted);font-size:12px">14:35 GMT-5</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view" id="dashboard">
+          <div class="metrics">
+            <div class="card"><div class="card-head"><div class="icon kpi-image"><img src="/icon-llegadas.png" alt="Llegadas"></div><span class="trend">12%</span></div><label>Llegadas hoy</label><strong id="arrivalsKpi">142</strong></div>
+            <div class="card"><div class="card-head"><div class="icon kpi-image"><img src="/icon-salidas.png" alt="Salidas"></div><span class="trend down">3%</span></div><label>Salidas hoy</label><strong id="departuresKpi">128</strong></div>
+            <div class="card"><div class="card-head"><div class="icon kpi-line"><img src="/icon-retrasos.png" alt="Retrasos"></div><span class="trend warn">En espera</span></div><label>Retrasos promedio</label><strong id="delayKpi">14 min</strong></div>
+            <div class="card"><div class="card-head"><div class="icon kpi-line"><img src="/icon-incidencias.png" alt="Incidencias"></div><span class="trend warn">Operativo</span></div><label>Incidencias abiertas</label><strong id="incidentKpi">3</strong></div>
+          </div>
+
+          <div class="grid main">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Próximos vuelos</h3>
+                <button class="btn small secondary" data-view-jump="vuelos">Ver todos</button>
+              </div>
+              <div style="overflow:auto">
+                <table>
+                  <thead><tr><th>Vuelo</th><th>Destino / Origen</th><th>Salida</th><th>Llegada est.</th><th>Puerta</th><th>Estado</th><th></th></tr></thead>
+                  <tbody id="flightRows"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="panel">
+                <div class="panel-head"><h3>Capacidad de terminal</h3><button class="btn small secondary" id="refreshCapacity">Actualizar</button></div>
+                <div class="panel-body capacity" id="capacityList"></div>
+              </div>
+
+              <div class="panel weather">
+                <div class="panel-body">
+                  <h3 style="margin:0 0 8px"> Alerta meteorológica</h3>
+                  <p style="margin:0 0 16px;color:rgba(255,255,255,.82);font-size:14px;line-height:1.5">Se prevén tormentas eléctricas en la zona norte a partir de las 18:00. Posibles retrasos en pista 2.</p>
+                  <button class="btn secondary" id="contingencyBtn">Ver plan de contingencia</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        
+          <div class="panel role-tools-panel" id="roleToolsPanel">
+            <div class="panel-head">
+              <div>
+                <h3 id="roleToolsTitle">Herramientas del rol</h3>
+                <p id="roleToolsSubtitle">Funciones diferenciadas segun el usuario autenticado.</p>
+              </div>
+              <button class="btn small secondary" id="refreshRoleTools" type="button">Actualizar</button>
+            </div>
+            <div class="panel-body" id="roleToolsBody"></div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="vuelos">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Vuelos en tiempo real</h3>
+              <button class="btn primary" id="openFlightModal">Registrar vuelo</button>
+            </div>
+            <div class="incoming-panel hidden" id="incomingPanel">
+              <div class="incoming-head">
+                <h4>Solicitudes de llegada pendientes</h4>
+                <span class="badge info" id="incomingCount">0 pendientes</span>
+              </div>
+              <div class="incoming-list" id="incomingList"></div>
+            </div>
+            <div style="overflow:auto">
+              <table>
+                <thead><tr><th>Vuelo</th><th>Ruta</th><th>Salida</th><th>Llegada est.</th><th>Puerta</th><th>Estado</th><th>Acción</th></tr></thead>
+                <tbody id="flightRowsFull"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="programacion">
+          <div class="grid three">
+            <div class="panel"><div class="panel-head"><h3>Turno mañana</h3></div><div class="panel-body stack" id="morningList"></div></div>
+            <div class="panel"><div class="panel-head"><h3>Turno tarde</h3></div><div class="panel-body stack" id="afternoonList"></div></div>
+            <div class="panel"><div class="panel-head"><h3>Turno noche</h3></div><div class="panel-body stack" id="nightList"></div></div>
+          </div>
+          <div class="grid two">
+            <div class="panel">
+              <div class="panel-head"><h3>Programación activa de operaciones</h3><button class="btn small secondary" id="refreshProgram">Actualizar</button></div>
+              <div class="panel-body stack" id="activeProgramList"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Asignación de recursos por hora</h3></div>
+              <div class="panel-body stack" id="resourceScheduleList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="trafico">
+          <div class="tower-sim-board">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h3>Radar de tráfico aéreo</h3>
+                    <p>Vigilancia de superficie: pista, rodaje y secuencia de autorizaciones simuladas.</p>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="tower-sim-frame-wrap">
+                  <iframe class="tower-sim-frame" id="towerSimulatorFrame" src="/torre_control_simulador.html" title="Simulador de torre de control aeroportuaria"></iframe>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>Tráfico detectado desde AeroControl</h3></div>
+              <div class="panel-body">
+                <div class="traffic-live-grid">
+                  <div class="mini-stat"><span>En pista · simulación</span><strong id="runwayStat">0</strong></div>
+                  <div class="mini-stat"><span>En posición · simulación</span><strong id="platformStat">0</strong></div>
+                  <div class="mini-stat"><span>Con retraso</span><strong id="trafficDelayStat">0</strong></div>
+                </div>
+                <div class="stack" id="trafficList" style="margin-top:14px"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="recursos">
+          <div class="grid three" id="resourcesGrid"></div>
+        </section>
+
+        <section class="view hidden" id="reportes">
+          <div class="metrics">
+            <div class="card"><label>Vuelos finalizados</label><strong id="doneKpi">91</strong></div>
+            <div class="card"><label>Incidencias cerradas</label><strong id="closedKpi">18</strong></div>
+            <div class="card"><label>Acciones auditadas</label><strong id="auditKpi">246</strong></div>
+            <div class="card"><label>Disponibilidad</label><strong>99.3%</strong></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h3>Reportes operacionales</h3><button class="btn primary" id="generateReport">Generar reporte</button></div>
+            <div class="panel-body stack" id="reportList"></div>
+          </div>
+        </section>
+
+        <section class="view hidden" id="perfil">
+          <div class="profile-grid">
+            <div class="panel">
+              <div class="panel-head"><h3>Perfil operativo</h3></div>
+              <div class="panel-body profile-summary">
+                <div class="profile-avatar" id="profileAvatar">AD</div>
+                <div>
+                  <h3 id="profileFullName" style="margin:0 0 6px">Admin AeroControl</h3>
+                  <p id="profileMeta" style="margin:0;color:var(--muted)">Administrador · Sistemas</p>
+                </div>
+                <div class="alert">
+                  <strong>Cuenta conectada a MySQL</strong>
+                  <p>Los datos de login, registro y perfil se guardan en la tabla usuarios.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><h3>Editar perfil operativo</h3></div>
+              <div class="panel-body">
+                <form id="profileForm">
+                  <div class="form">
+                    <label>Nombre<input id="profileName" required></label>
+                    <label>Apellido<input id="profileLastName" required></label>
+                    <label>DNI<input id="profileDni" disabled></label>
+                    <label>Rol<input id="profileRole" disabled></label>
+                    <label>Celular<input id="profilePhone" inputmode="numeric" maxlength="9" required></label>
+                    <label>Correo<input id="profileEmail" type="email" required></label>
+                    <label class="wide">Área<input id="profileArea" required></label>
+                    <label class="wide">Nueva contraseña (opcional)
+                      <span class="password-control">
+                        <input id="profilePassword" type="password" minlength="10" maxlength="72" autocomplete="new-password" placeholder="Déjala vacía para conservar la actual">
+                        <button class="password-visibility" id="toggleProfilePassword" type="button" aria-label="Mostrar contraseña">Mostrar</button>
+                      </span>
+                    </label>
+                    <label class="wide">Confirmar nueva contraseña<input id="profilePasswordConfirm" type="password" minlength="10" maxlength="72" autocomplete="new-password" placeholder="Repite la nueva contraseña"></label>
+                    <ul class="password-policy wide" id="profilePasswordPolicy" aria-live="polite"></ul>
+                  </div>
+                  <div class="actions">
+                    <button class="btn primary">Guardar cambios</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="panel user-admin-panel">
+              <div class="panel-head">
+                <h3>Usuarios principales del sistema</h3>
+                <button class="btn small secondary" id="refreshUsers">Actualizar</button>
+              </div>
+              <div class="panel-body stack" id="usersList">
+                <div class="alert">
+                  <strong>Cargando usuarios...</strong>
+                  <p>Consultando datos desde MySQL.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="flightModal">
+    <div class="modal flight-booking-modal">
+      <div class="modal-head">
+        <h3>¿A dónde quieres ir?</h3>
+        <div class="flight-mode-tabs" aria-label="Tipo de operación">
+          <span class="flight-pill active">✓ Operación programada</span>
+          <button class="flight-close" id="closeFlightModal" type="button" aria-label="Cerrar">⌃</button>
+        </div>
+      </div>
+      <div class="flight-booking-body">
+        <form id="flightForm">
+          <div class="flight-search-card">
+            <div class="route-box">
+              <div class="route-field">
+                <label for="flightOrigin">Desde</label>
+                <input id="flightOrigin" required placeholder="Ingresa un origen">
+              </div>
+              <button class="swap-route" id="swapRoute" type="button" aria-label="Intercambiar origen y destino">↔</button>
+              <div class="route-field">
+                <label for="flightDestination">Hacia</label>
+                <input id="flightDestination" required placeholder="Ingresa un destino">
+              </div>
+            </div>
+            <input id="flightRoute" type="hidden" required>
+            <div class="flight-form-grid">
+              <div class="flight-field">
+                <label for="flightType">Tipo de vuelo</label>
+                <select id="flightType"><option>Salida</option><option>Llegada</option><option>Tránsito</option></select>
+              </div>
+              <div class="flight-field">
+                <label for="flightDate">Fecha automática</label>
+                <input id="flightDate" readonly placeholder="Fecha actual">
+              </div>
+              <div class="flight-field">
+                <label for="flightTime">Hora programada</label>
+                <input id="flightTime" required readonly placeholder="Hora automática">
+              </div>
+              <div class="flight-field">
+                <label for="flightCode">Código de vuelo</label>
+                <input id="flightCode" required readonly placeholder="Código automático">
+              </div>
+              <div class="flight-field">
+                <label for="flightGate">Puerta / posición</label>
+                <input id="flightGate" required readonly placeholder="Puerta automática">
+              </div>
+              <div class="flight-field full">
+                <label for="flightStatus">Estado operacional</label>
+                <select id="flightStatus"><option>Programado</option><option>Embarcando</option><option>En hora</option><option>Retrasado</option><option>Finalizado</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="flight-booking-actions">
+            <button type="button" class="btn secondary" id="clearForm">Limpiar</button>
+            <button class="btn primary">Guardar vuelo</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="flight-detail-backdrop" id="flightDetailModal">
+    <div class="flight-detail-card" id="flightDetailCard" role="dialog" aria-modal="true" aria-label="Detalle del vuelo"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const views = {
+      dashboard: ["Resumen de operaciones", "Monitoreo activo de vuelos, recursos, tráfico e incidencias."],
+      vuelos: ["Vuelos en tiempo real", "Consulta, registro y actualización de operaciones de vuelo."],
+      programacion: ["Programación operativa", "Planificación por turnos y seguimiento de actividades."],
+      trafico: ["Control de tráfico", "Radar operacional y monitoreo de aeronaves detectadas."],
+      recursos: ["Recursos operativos", "Estado de pistas, puertas, posiciones y soporte aeroportuario."],
+      reportes: ["Reportes y estadísticas", "Indicadores consolidados para supervisión y toma de decisiones."],
+      perfil: ["Perfil de usuario", "Gestión de datos del operador autenticado."]
+    };
+
+    const actorPermissions = {
+      administrador: {
+        label: "Administrador del sistema",
+        views: ["dashboard", "vuelos", "programacion", "trafico", "recursos", "reportes", "perfil"],
+        actions: ["createFlight", "changeFlight", "simulateIncident", "updateResource", "generateReport"]
+      },
+      operador: {
+        label: "Operador aeroportuario",
+        views: ["dashboard", "vuelos", "programacion", "recursos", "perfil"],
+        actions: ["createFlight", "changeFlight", "simulateIncident", "updateResource"]
+      },
+      supervisor: {
+        label: "Supervisor de operaciones",
+        views: ["dashboard", "programacion", "trafico", "recursos", "reportes", "perfil"],
+        actions: ["updateResource", "generateReport"]
+      },
+      torre: {
+        label: "Torre de control",
+        views: ["dashboard", "vuelos", "programacion", "trafico", "perfil"],
+        actions: ["changeFlight"]
+      },
+      gerencia: {
+        label: "Gerencia / CORPAC",
+        views: ["dashboard", "reportes", "perfil"],
+        actions: ["generateReport"]
+      }
+    };
+
+    let currentUser = null;
+    let flights = [];
+    let alerts = [];
+    let resources = [];
+    let metrics = {};
+    let users = [];
+    let reportEdits = {};
+    let generatedReports = [];
+    let roleActions = [];
+    let deletedReports = [];
+    let incomingFlights = [];
+    let departureQueue = [];
+    let liveOpsTimer = null;
+    let departureQueueTimer = null;
+    let liveOpsBusy = false;
+
+    const statusClass = {
+      "En hora": "ok",
+      "Embarcando": "warn",
+      "Retrasado": "bad",
+      "Programado": "neutral",
+      "Finalizado": "info",
+      "En vuelo": "info"
+    };
+
+    const toast = document.getElementById("toast");
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    const PASSWORD_REQUIREMENTS = [
+      { label: "10 a 72 caracteres", test: value => value.length >= 10 && value.length <= 72 },
+      { label: "Una letra mayúscula", test: value => /[A-Z]/.test(value) },
+      { label: "Una letra minúscula", test: value => /[a-z]/.test(value) },
+      { label: "Un número", test: value => /\d/.test(value) },
+      { label: "Un símbolo", test: value => /[^A-Za-z0-9\s]/.test(value) },
+      { label: "Sin espacios", test: value => !/\s/.test(value) }
+    ];
+
+    function passwordPolicyIssues(value) {
+      const password = String(value || "");
+      return PASSWORD_REQUIREMENTS.filter(rule => !rule.test(password)).map(rule => rule.label);
+    }
+
+    function renderPasswordPolicy(inputId, listId) {
+      const input = document.getElementById(inputId);
+      const list = document.getElementById(listId);
+      if (!input || !list) return;
+      const password = input.value;
+      list.innerHTML = PASSWORD_REQUIREMENTS.map(rule =>
+        `<li class="${rule.test(password) ? "valid" : ""}">${rule.label}</li>`
+      ).join("");
+    }
+
+    function setupPasswordVisibility(buttonId, inputIds) {
+      const button = document.getElementById(buttonId);
+      const inputs = inputIds.map(id => document.getElementById(id)).filter(Boolean);
+      if (!button || !inputs.length) return;
+      button.addEventListener("click", () => {
+        const show = inputs[0].type === "password";
+        inputs.forEach(input => { input.type = show ? "text" : "password"; });
+        button.textContent = show ? "Ocultar" : "Mostrar";
+        button.setAttribute("aria-label", show ? "Ocultar contraseña" : "Mostrar contraseña");
+      });
+    }
+
+    let loginLockTimer = null;
+
+    function setLoginLock(seconds) {
+      clearInterval(loginLockTimer);
+      const button = document.getElementById("loginSubmitButton");
+      const message = document.getElementById("loginSecurityMessage");
+      let remaining = Math.max(0, Number(seconds) || 0);
+
+      const update = () => {
+        if (remaining <= 0) {
+          clearInterval(loginLockTimer);
+          button.disabled = false;
+          button.textContent = "Entrar al sistema";
+          message.classList.remove("error");
+          message.textContent = "Máximo 5 intentos. Al alcanzar el límite, el acceso se bloquea durante 15 minutos.";
+          return;
+        }
+        const minutes = Math.floor(remaining / 60);
+        const secs = remaining % 60;
+        button.disabled = true;
+        button.textContent = `Bloqueado ${minutes}:${String(secs).padStart(2, "0")}`;
+        message.classList.add("error");
+        message.textContent = `Acceso bloqueado temporalmente. Intenta nuevamente en ${minutes}:${String(secs).padStart(2, "0")}.`;
+        remaining -= 1;
+      };
+
+      update();
+      loginLockTimer = setInterval(update, 1000);
+    }
+
+    setupPasswordVisibility("toggleLoginPassword", ["loginPassword"]);
+    setupPasswordVisibility("toggleRegisterPassword", ["registerPassword", "registerPasswordConfirm"]);
+    setupPasswordVisibility("toggleProfilePassword", ["profilePassword", "profilePasswordConfirm"]);
+    document.getElementById("registerPassword").addEventListener("input", () => renderPasswordPolicy("registerPassword", "registerPasswordPolicy"));
+    document.getElementById("profilePassword").addEventListener("input", () => renderPasswordPolicy("profilePassword", "profilePasswordPolicy"));
+    renderPasswordPolicy("registerPassword", "registerPasswordPolicy");
+    renderPasswordPolicy("profilePassword", "profilePasswordPolicy");
+
+    function initials(user) {
+      return `${user?.nombre?.[0] || ""}${user?.apellido?.[0] || ""}`.toUpperCase() || "US";
+    }
+
+    const AREAS_BY_ROLE = {
+      "Operador": ["Operaciones aeroportuarias", "Plataforma", "Rampa"],
+      "Supervisor": ["Operaciones aeroportuarias", "Torre de control", "Seguridad aeroportuaria"],
+      "Administrador": ["Torre de control", "Gerencia", "Sistemas"]
+    };
+
+    function populateRegisterAreas() {
+      const roleSelect = document.getElementById("registerRole");
+      const areaSelect = document.getElementById("registerArea");
+      const options = AREAS_BY_ROLE[roleSelect.value] || AREAS_BY_ROLE["Operador"];
+      const previous = areaSelect.value;
+      areaSelect.innerHTML = options.map(area => `<option value="${area}">${area}</option>`).join("");
+      areaSelect.value = options.includes(previous) ? previous : options[0];
+    }
+
+    document.getElementById("registerRole").addEventListener("change", populateRegisterAreas);
+    populateRegisterAreas();
+
+    function showAuth(mode = "login") {
+      document.getElementById("authScreen").classList.remove("hidden");
+      document.getElementById("appShell").classList.add("hidden");
+      const isLogin = mode === "login";
+      document.getElementById("loginForm").classList.toggle("hidden", !isLogin);
+      document.getElementById("registerForm").classList.toggle("hidden", isLogin);
+      document.getElementById("showLogin").classList.toggle("active", isLogin);
+      document.getElementById("showRegister").classList.toggle("active", !isLogin);
+    }
+
+    function showApp() {
+      document.getElementById("authScreen").classList.add("hidden");
+      document.getElementById("appShell").classList.remove("hidden");
+    }
+
+    function actorKey(user = currentUser) {
+          const area = String(user?.area || "").toLowerCase();
+          const role = String(user?.rol || "").toLowerCase();
+          if (area.includes("gerencia") || area.includes("corpac")) return "gerencia";
+          if (area.includes("torre")) return "torre";
+          if (role.includes("administrador")) return "administrador";
+          if (role.includes("supervisor")) return "supervisor";
+          return "operador";
+        }
+
+    function currentPermissions() {
+          return actorPermissions[actorKey()] || actorPermissions.operador;
+        }
+
+    function canUse(action) {
+          return currentPermissions().actions.includes(action);
+        }
+
+    function canView(id) {
+          return currentPermissions().views.includes(id);
+        }
+
+    function applyPermissions() {
+          const permissions = currentPermissions();
+          document.querySelectorAll("nav button[data-view]").forEach(btn => {
+            btn.classList.toggle("hidden", !permissions.views.includes(btn.dataset.view));
+          });
+          document.getElementById("openFlightModal").classList.toggle("hidden", !canUse("createFlight"));
+          document.getElementById("simulateIncident").classList.toggle("hidden", !canUse("simulateIncident"));
+          document.getElementById("generateReport").classList.toggle("hidden", !canUse("generateReport"));
+          document.getElementById("userRole").textContent = `${permissions.label} · ${currentUser.area}`;
+          document.getElementById("profileMeta").textContent = `${permissions.label} · ${currentUser.area}`;
+        }
+
+    function updateUserUI() {
+      if (!currentUser) return;
+      const fullName = `${currentUser.nombre} ${currentUser.apellido}`;
+      document.getElementById("userAvatar").textContent = initials(currentUser);
+      document.getElementById("userName").textContent = fullName;
+      document.getElementById("userRole").textContent = `${currentUser.rol} · ${currentUser.area}`;
+      document.getElementById("profileAvatar").textContent = initials(currentUser);
+      document.getElementById("profileFullName").textContent = fullName;
+      document.getElementById("profileMeta").textContent = `${currentUser.rol} · ${currentUser.area}`;
+      document.getElementById("profileName").value = currentUser.nombre;
+      document.getElementById("profileLastName").value = currentUser.apellido;
+      document.getElementById("profileDni").value = currentUser.dni;
+      document.getElementById("profileRole").value = currentUser.rol;
+      document.getElementById("profilePhone").value = currentUser.celular;
+      document.getElementById("profileEmail").value = currentUser.correo;
+      document.getElementById("profileArea").value = currentUser.area;
+      document.getElementById("profilePassword").value = "";
+      document.getElementById("profilePasswordConfirm").value = "";
+      renderPasswordPolicy("profilePassword", "profilePasswordPolicy");
+    }
+
+    async function startSession(user) {
+      currentUser = user;
+      updateUserUI();
+      showApp();
+      applyPermissions();
+      await Promise.all([loadData(), loadUsers()]);
+      renderAll();
+      startLiveOpsLoop();
+      setView("dashboard");
+    }
+
+    function setView(id) {
+          if (!canView(id)) {
+            showToast("Tu perfil no tiene acceso a esta función.");
+            id = "dashboard";
+          }
+          document.querySelectorAll(".view").forEach(view => view.classList.add("hidden"));
+          document.getElementById(id).classList.remove("hidden");
+          document.querySelectorAll("nav button").forEach(btn => btn.classList.toggle("active", btn.dataset.view === id));
+          document.getElementById("viewTitle").textContent = views[id][0];
+          document.getElementById("viewSubtitle").textContent = views[id][1];
+          syncTowerSimulator();
+          if (id === "trafico") refreshTowerSource();
+        }
+    function hashText(value) {
+      return String(value || "").split("").reduce((total, char) => ((total * 31) + char.charCodeAt(0)) >>> 0, 7);
+    }
+
+    function pickSeeded(list, seed) {
+      return list[Math.abs(seed) % list.length];
+    }
+
+    function formatTimeOffset(timeText, minutes) {
+      const [hours = 0, mins = 0] = String(timeText || "00:00").split(":").map(Number);
+      const date = new Date();
+      date.setHours(hours, mins + minutes, 0, 0);
+      return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    }
+
+    function minutesFromTime(timeText) {
+      const [hours = 0, mins = 0] = String(timeText || "00:00").split(":").map(Number);
+      return (hours * 60) + mins;
+    }
+
+    function currentMinutesOfDay() {
+      const now = new Date();
+      return (now.getHours() * 60) + now.getMinutes();
+    }
+
+    function isDepartureFlight(flight) {
+      const type = String(flight.tipo || "").toLowerCase();
+      const route = String(flight.ruta || "").toLowerCase();
+      return type.includes("salida") || route.startsWith("lima") || route.includes("lim) -");
+    }
+
+    function estimatedFlightDuration(flight) {
+      const seed = hashText(`${flight.codigo}-${flight.ruta}`);
+      const route = String(flight.ruta || "");
+      const domesticCodes = ["CUZ", "AQP", "TPP", "CIX", "PIU", "IQT", "TRU", "LIM"];
+      const routeCodes = [...route.matchAll(/\(([A-Z]{3})\)/g)].map(match => match[1]);
+      const isDomestic = routeCodes.length >= 2 && routeCodes.every(code => domesticCodes.includes(code));
+      return isDomestic ? 55 + (seed % 70) : 190 + (seed % 470);
+    }
+
+    function flightTimes(flight) {
+      const departure = flight.hora || currentFlightTime?.() || "00:00";
+      const arrival = formatTimeOffset(departure, estimatedFlightDuration(flight));
+      return { departure, arrival };
+    }
+
+    function flightDelayReason(flight) {
+      const reasons = [
+        "demora por separación de tráfico en aproximación",
+        "espera de autorización por congestión de pista",
+        "restricción meteorológica en ruta",
+        "verificación técnica previa al despacho",
+        "reprogramación por ocupación temporal de puerta",
+        "ajuste de secuencia solicitado por torre de control"
+      ];
+      return pickSeeded(reasons, hashText(`${flight.codigo}-${flight.estado}-${flight.ruta}`));
+    }
+
+    function operationalStatusFor(flight) {
+      if (flight.estado === "Finalizado") return "Finalizado";
+      if (!isDepartureFlight(flight)) return flight.estado;
+      const { departure } = flightTimes(flight);
+      const start = minutesFromTime(departure);
+      const end = start + estimatedFlightDuration(flight);
+      const now = currentMinutesOfDay();
+      const adjustedNow = now < start && start > 1080 ? now + 1440 : now;
+      const delayedByPattern = hashText(`${flight.codigo}-${flight.ruta}`) % 7 === 0;
+      if (adjustedNow >= end) return "Finalizado";
+      if (flight.estado === "Retrasado" || delayedByPattern) return "Retrasado";
+      if (adjustedNow >= start && adjustedNow < end) return "En vuelo";
+      return flight.estado || "Programado";
+    }
+
+    function flightRow(flight, full = false) {
+      const status = operationalStatusFor(flight);
+      const cls = statusClass[status] || "neutral";
+      const times = flightTimes(flight);
+      const canDepart = canUse("changeFlight") && status !== "Finalizado";
+      const officialLabel = String(flight.tipo || "").toLowerCase() === "llegada" ? "Confirmar llegada" : "Salida oficial";
+      const actionButtons = canDepart
+        ? `<button class="btn small secondary" data-open-comms="${flight.id}">Comunicar</button> <button class="btn small secondary" data-official-departure="${flight.id}">${officialLabel}</button>${full ? ` <button class="btn small secondary" data-toggle-status="${flight.id}">Cambiar estado</button>` : ""}`
+        : `<button class="btn small secondary" data-open-comms="${flight.id}">Ver comunicación</button>`;
+      return `<tr data-flight-detail="${flight.id}">
+        <td><strong>${escapeHtml(flight.codigo)}</strong><br><span style="color:var(--muted);font-size:12px">${escapeHtml(flight.tipo)}</span></td>
+        <td>${escapeHtml(flight.ruta)}</td>
+        <td>${escapeHtml(times.departure)}</td>
+        <td>${escapeHtml(times.arrival)}</td>
+        <td>${escapeHtml(flight.puerta)}</td>
+        <td><span class="badge ${cls}">${escapeHtml(status.toUpperCase())}</span></td>
+        <td>${actionButtons}</td>
+      </tr>`;
+    }
+
+    function parseFlightRoute(route) {
+      const [rawFrom = "Lima (LIM)", rawTo = "Operación aeroportuaria"] = String(route || "").split(" - ");
+      const codeFrom = rawFrom.match(/\(([A-Z]{3})\)/)?.[1] || rawFrom.slice(0, 3).toUpperCase();
+      const codeTo = rawTo.match(/\(([A-Z]{3})\)/)?.[1] || rawTo.slice(0, 3).toUpperCase();
+      return {
+        from: rawFrom.trim(),
+        to: rawTo.trim(),
+        fromCode: codeFrom,
+        toCode: codeTo,
+        fromCity: rawFrom.replace(/\s*\([A-Z]{3}\)/, "").trim(),
+        toCity: rawTo.replace(/\s*\([A-Z]{3}\)/, "").trim()
+      };
+    }
+
+    function buildFlightDetails(flight) {
+      const status = operationalStatusFor(flight);
+      const seed = hashText(`${flight.codigo}-${flight.ruta}-${flight.hora}`);
+      const route = parseFlightRoute(flight.ruta);
+      const times = flightTimes(flight);
+      const airlines = {
+        LAT: "LATAM Airlines", AVA: "Avianca", SKY: "Sky Airline", AAL: "American Airlines",
+        IBE: "Iberia", CPA: "Copa Airlines", AER: "AeroControl Ops", JAT: "JetSMART"
+      };
+      const prefix = String(flight.codigo || "AER").replace(/[^A-Z]/g, "").slice(0, 3);
+      const aircrafts = ["Airbus A320neo", "Airbus A321", "Boeing 737 MAX 8", "Boeing 737 MAX 9", "Boeing 787-9", "Airbus A350-900"];
+      const planeImages = [
+        "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1542296332-2e4473faf563?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1529074963764-98f45c47344b?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1483450388369-9ed95738483c?auto=format&fit=crop&w=900&q=80"
+      ];
+      const distance = 420 + (seed % 6200);
+      const progress = status === "Finalizado" ? 100 : status === "En vuelo" ? 30 + (seed % 55) : 8 + (seed % 22);
+      const altitude = status === "Finalizado" ? "0 ft" : status === "En vuelo" ? `${(280 + (seed % 120)) * 100} ft` : "En plataforma";
+      const speed = status === "Finalizado" ? "0 kt" : status === "En vuelo" ? `${360 + (seed % 155)} kt` : "0 kt";
+      const lat = (-12.02 + ((seed % 260) - 130) / 100).toFixed(5);
+      const lon = (-77.04 + (((seed >> 4) % 300) - 150) / 100).toFixed(5);
+      return {
+        airline: airlines[prefix] || "AeroControl Ops",
+        aircraft: pickSeeded(aircrafts, seed),
+        image: pickSeeded(planeImages, seed),
+        registration: `${prefix || "AER"}-${String(1000 + (seed % 8999))}`,
+        msn: String(42000 + (seed % 9000)),
+        age: `${1 + (seed % 12)} años`,
+        distance,
+        progress,
+        scheduled: times.departure,
+        actual: status === "En vuelo" ? "En vuelo" : status === "Finalizado" ? "Arribado" : status,
+        estimated: times.arrival,
+        delayReason: flightDelayReason(flight),
+        status,
+        altitude,
+        speed,
+        vertical: status === "En vuelo" ? `${300 + (seed % 1800)} ft/min` : "0 ft/min",
+        track: `${seed % 360}°`,
+        trueSpeed: speed,
+        mach: status === "En vuelo" ? `0.${72 + (seed % 12)}` : "0.00",
+        wind: `${6 + (seed % 18)} kt`,
+        temperature: `${12 + (seed % 18)} °C`,
+        squawk: String(1000 + (seed % 7000)),
+        lat,
+        lon,
+        route
+      };
+    }
+
+    function closeFlightDetail() {
+      document.getElementById("flightDetailModal")?.classList.remove("show");
+    }
+
+    function showFlightDetail(id) {
+      const flight = flights.find(item => item.id === Number(id));
+      if (!flight) return showToast("No se encontró el vuelo seleccionado.");
+      const detail = buildFlightDetails(flight);
+      const cls = statusClass[detail.status] || "neutral";
+      const card = document.getElementById("flightDetailCard");
+      card.innerHTML = `
+        <div class="flight-detail-hero" style="background-image: linear-gradient(135deg, rgba(0, 36, 64, .86), rgba(6, 95, 70, .72)), url('${detail.image}');">
+          <div class="flight-detail-top">
+            <div>
+              <div class="flight-code-large">${escapeHtml(flight.codigo)}</div>
+              <div class="flight-airline">${escapeHtml(detail.airline)} · ${escapeHtml(flight.tipo)} · <span class="badge ${cls}">${escapeHtml(detail.status)}</span></div>
+            </div>
+            <button class="detail-close" type="button" data-close-flight-detail aria-label="Cerrar">×</button>
+          </div>
+          <div class="flight-route-display">
+            <div><div class="airport-code">${escapeHtml(detail.route.fromCode)}</div><div class="airport-city">${escapeHtml(detail.route.fromCity)}</div></div>
+            <div class="route-plane">&#9992;</div>
+            <div><div class="airport-code">${escapeHtml(detail.route.toCode)}</div><div class="airport-city">${escapeHtml(detail.route.toCity)}</div></div>
+          </div>
+        </div>
+        <div class="flight-times">
+          <div class="flight-time-box"><span>Programado</span><strong>${escapeHtml(detail.scheduled)}</strong></div>
+          <div class="flight-time-box"><span>Actual</span><strong>${escapeHtml(detail.actual)}</strong></div>
+          <div class="flight-time-box"><span>Estimado</span><strong>${escapeHtml(detail.estimated)}</strong></div>
+        </div>
+        <div class="flight-progress">
+          <div class="flight-progress-meta"><span>${escapeHtml(detail.distance.toLocaleString("es-PE"))} km estimados</span><span>${detail.progress}%</span></div>
+          <div class="flight-progress-track"><span style="width:${detail.progress}%"></span></div>
+          <div class="flight-progress-meta"><span>${escapeHtml(flight.puerta)} · puerta/posición</span><span>${escapeHtml(detail.status)}</span></div>
+        </div>
+        <section class="detail-section">
+          <div class="detail-section-title">Aeronave y operación <span>Más información</span></div>
+          <div class="detail-grid">
+            <div class="detail-cell"><span>Aircraft type</span><strong>${escapeHtml(detail.aircraft)}</strong></div>
+            <div class="detail-cell"><span>Registro</span><strong>${escapeHtml(detail.registration)}</strong></div>
+            <div class="detail-cell"><span>Serial number (MSN)</span><strong>${escapeHtml(detail.msn)}</strong></div>
+            <div class="detail-cell"><span>Edad</span><strong>${escapeHtml(detail.age)}</strong></div>
+            <div class="detail-cell"><span>Categoría</span><strong>Passenger</strong></div>
+            <div class="detail-cell"><span>Estado</span><strong>${escapeHtml(detail.status)}</strong></div>
+            <div class="detail-cell"><span>Comunicación</span><strong>${escapeHtml(detail.delayReason)}</strong></div>
+          </div>
+        </section>
+        <section class="detail-section">
+          <div class="detail-section-title green">Velocidad y altitud</div>
+          <div class="detail-grid">
+            <div class="detail-cell"><span>Altitud barométrica</span><strong>${escapeHtml(detail.altitude)}</strong></div>
+            <div class="detail-cell"><span>Velocidad vertical</span><strong>${escapeHtml(detail.vertical)}</strong></div>
+            <div class="detail-cell"><span>Ground speed</span><strong>${escapeHtml(detail.speed)}</strong></div>
+            <div class="detail-cell"><span>Track</span><strong>${escapeHtml(detail.track)}</strong></div>
+            <div class="detail-cell"><span>True airspeed</span><strong>${escapeHtml(detail.trueSpeed)}</strong></div>
+            <div class="detail-cell"><span>Mach</span><strong>${escapeHtml(detail.mach)}</strong></div>
+          </div>
+        </section>
+        <section class="detail-section">
+          <div class="detail-section-title slate">Data source - Terrestrial ADS-B</div>
+          <div class="detail-grid">
+            <div class="detail-cell"><span>Squawk</span><strong>${escapeHtml(detail.squawk)}</strong></div>
+            <div class="detail-cell"><span>Fuente</span><strong>Radar operacional</strong></div>
+            <div class="detail-cell"><span>Latitud</span><strong>${escapeHtml(detail.lat)}</strong></div>
+            <div class="detail-cell"><span>Longitud</span><strong>${escapeHtml(detail.lon)}</strong></div>
+            <div class="detail-cell"><span>Viento</span><strong>${escapeHtml(detail.wind)}</strong></div>
+            <div class="detail-cell"><span>Temperatura</span><strong>${escapeHtml(detail.temperature)}</strong></div>
+          </div>
+          <div class="detail-note">Ficha generada desde la programación activa del sistema AeroControl Ops. La información permite a torre, supervisión y administración revisar características del vuelo antes de cambiar su estado.</div>
+        </section>
+      `;
+      document.getElementById("flightDetailModal")?.classList.add("show");
+    }
+    function renderFlights(filter = "") {
+      const term = filter.trim().toLowerCase();
+      const filtered = flights.filter(f => [f.codigo, f.ruta, f.hora, f.puerta, operationalStatusFor(f), f.tipo].join(" ").toLowerCase().includes(term));
+      const activeFlights = filtered.filter(f => operationalStatusFor(f) !== "Finalizado");
+      const emptyRow = `<tr><td colspan="7" style="color:var(--muted);padding:18px">No hay vuelos activos en este momento.</td></tr>`;
+      document.getElementById("flightRows").innerHTML = activeFlights.slice(0, 4).map(f => flightRow(f)).join("") || emptyRow;
+      document.getElementById("flightRowsFull").innerHTML = activeFlights.map(f => flightRow(f, true)).join("") || emptyRow;
+      document.getElementById("arrivalsKpi").textContent = metrics.llegadas ?? 0;
+      document.getElementById("departuresKpi").textContent = metrics.salidas ?? 0;
+      document.getElementById("delayKpi").textContent = metrics.retrasados ? "14 min" : "0 min";
+      renderIncomingFlights();
+    }
+
+    const LIVE_FLIGHT_LIMIT = 30;
+
+    function canApproveIncoming() {
+      const key = actorKey();
+      return key === "administrador" || key === "torre";
+    }
+
+    function activeFlightCount() {
+      return flights.filter(flight => operationalStatusFor(flight) !== "Finalizado").length;
+    }
+
+    function liveOpsIntervalMs() {
+      const ratio = Math.min(activeFlightCount() / LIVE_FLIGHT_LIMIT, 1);
+      const minMinutes = 5;
+      const maxMinutes = 20;
+      const minutes = Math.round(minMinutes + (maxMinutes - minMinutes) * ratio);
+      return minutes * 60 * 1000;
+    }
+
+    function nextOpsLabel() {
+      return `${Math.round(liveOpsIntervalMs() / 60000)} min`;
+    }
+
+    function futureFlightTime() {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + randomBetween(15, 30));
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    }
+
+    function uniqueLiveFlightCode() {
+      const used = new Set([...flights.map(f => String(f.codigo || "").toUpperCase()), ...incomingFlights.map(f => String(f.codigo || "").toUpperCase()), ...departureQueue.map(f => String(f.codigo || "").toUpperCase())]);
+      let code = "";
+      let tries = 0;
+      do {
+        const airline = ["LAT", "AVA", "SKY", "JAT", "CPA", "LIM", "AER", "IBE", "AAL"][randomBetween(0, 8)];
+        code = `${airline}${randomBetween(100, 999)}`;
+        tries += 1;
+      } while (used.has(code) && tries < 80);
+      return code;
+    }
+
+    function randomDestination() {
+      const cities = [
+        ["Cusco", "CUZ"], ["Arequipa", "AQP"], ["Trujillo", "TRU"], ["Piura", "PIU"], ["Iquitos", "IQT"],
+        ["Tarapoto", "TPP"], ["Juliaca", "JUL"], ["Tacna", "TCQ"], ["Pucallpa", "PCL"], ["Chiclayo", "CIX"],
+        ["Bogotá", "BOG"], ["Santiago", "SCL"], ["Madrid", "MAD"], ["Miami", "MIA"], ["Quito", "UIO"],
+        ["Buenos Aires", "EZE"], ["Ciudad de México", "MEX"], ["Panamá", "PTY"], ["São Paulo", "GRU"]
+      ];
+      return cities[randomBetween(0, cities.length - 1)];
+    }
+
+    function generateFlightRequest(reason = "Rotación automática") {
+      const [city, code] = randomDestination();
+      const tipo = Math.random() > 0.45 ? "Llegada" : "Salida";
+      const gate = generateGateCode();
+      return {
+        tempId: `REQ-${Date.now()}-${randomBetween(100, 999)}`,
+        codigo: uniqueLiveFlightCode(),
+        ruta: tipo === "Llegada" ? `${city} (${code}) - Lima (LIM)` : `Lima (LIM) - ${city} (${code})`,
+        hora: futureFlightTime(),
+        puerta: gate,
+        estado: "Programado",
+        tipo,
+        motivo: reason
+      };
+    }
+
+    function departureScaleMinutes(flight) {
+      return [15, 20, 30][hashText(`${flight.codigo}-${flight.ruta}`) % 3];
+    }
+
+    async function scheduleDepartureFromArrival(flight) {
+      if (!flight || String(flight.tipo || "").toLowerCase() !== "llegada") return;
+      const alreadyVisible = incomingFlights.some(item => item.sourceArrival === flight.codigo);
+      const alreadyQueued = departureQueue.some(item => item.sourceArrival === flight.codigo);
+      if (alreadyVisible || alreadyQueued) return;
+      const [city, code] = randomDestination();
+      const scale = departureScaleMinutes(flight);
+      const dueAt = Date.now() + (scale * 60 * 1000);
+      const request = {
+        tempId: `DEP-${Date.now()}-${randomBetween(100, 999)}`,
+        codigo: uniqueLiveFlightCode(),
+        ruta: `Lima (LIM) - ${city} (${code})`,
+        hora: formatTimeOffset(currentFlightTime(), scale),
+        puerta: flight.puerta || generateGateCode(),
+        estado: "Programado",
+        tipo: "Salida",
+        motivo: `Rotación de ${flight.codigo}: aeronave en tierra, solicita salida tras escala de ${scale} min`,
+        sourceArrival: flight.codigo,
+        dueAt
+      };
+
+      const response = await fetch("/api/solicitudes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...request, origen_vuelo: flight.codigo })
+      });
+      if (response.ok) {
+        const saved = await response.json();
+        request.requestId = saved.id;
+        request.tempId = `DEP-DB-${saved.id}`;
+      }
+      departureQueue.push(request);
+      showToast(`${flight.codigo} quedó en escala. Solicitará salida a las ${request.hora}.`);
+      scheduleDepartureQueueCheck();
+    }
+
+    function checkDepartureQueue() {
+      const now = Date.now();
+      const ready = departureQueue.filter(item => Number(item.dueAt) <= now);
+      if (!ready.length) return;
+      ready.forEach(item => {
+        if (!incomingFlights.some(request => request.tempId === item.tempId || request.sourceArrival === item.sourceArrival)) {
+          incomingFlights.unshift(item);
+        }
+      });
+      departureQueue = departureQueue.filter(item => Number(item.dueAt) > now);
+      renderIncomingFlights();
+      setView("vuelos");
+      showToast(`${ready.length} solicitud${ready.length === 1 ? "" : "es"} de salida lista${ready.length === 1 ? "" : "s"} para autorización.`);
+    }
+
+    function scheduleDepartureQueueCheck() {
+      if (departureQueueTimer) clearInterval(departureQueueTimer);
+      departureQueueTimer = setInterval(checkDepartureQueue, 30000);
+      checkDepartureQueue();
+    }
+    function queueIncomingFlight(reason) {
+      if (incomingFlights.length >= 3) return;
+      if (activeFlightCount() >= LIVE_FLIGHT_LIMIT) {
+        showToast(`Límite operativo alcanzado: ${LIVE_FLIGHT_LIMIT} vuelos activos. Esperando liberación de plataforma.`);
+        scheduleNextLiveOps();
+        return;
+      }
+      const request = generateFlightRequest(reason);
+      incomingFlights.unshift(request);
+      renderIncomingFlights();
+      setView("vuelos");
+      showToast(`Nueva ${request.tipo.toLowerCase()} pendiente: ${request.codigo}. Requiere autorización.`);
+    }
+
+    function renderIncomingFlights() {
+      const panel = document.getElementById("incomingPanel");
+      const list = document.getElementById("incomingList");
+      const count = document.getElementById("incomingCount");
+      if (!panel || !list || !count) return;
+      panel.classList.toggle("hidden", incomingFlights.length === 0);
+      count.textContent = `${incomingFlights.length} pendiente${incomingFlights.length === 1 ? "" : "s"} · próxima revisión ${nextOpsLabel()}`;
+      list.innerHTML = incomingFlights.map(flight => {
+        const badge = flight.tipo === "Llegada" ? "Llegada solicitada" : "Salida solicitada";
+        const approveLabel = flight.tipo === "Llegada" ? "Autorizar llegada" : "Autorizar salida";
+        return `
+          <div class="incoming-card">
+            <div>
+              <strong>${flight.codigo} <span class="badge info">${badge}</span></strong>
+              <p>${flight.ruta} · Hora estimada ${flight.hora} · Puerta sugerida ${flight.puerta} · ${flight.motivo}</p>
+            </div>
+            <div class="incoming-actions">
+              ${canApproveIncoming() ? `<button class="btn small primary" data-approve-incoming="${flight.tempId}">${approveLabel}</button><button class="btn small secondary" data-reject-incoming="${flight.tempId}">Rechazar</button>` : `<span class="badge neutral">Esperando Admin/Torre</span>`}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function markOfficialDeparture(id, reason = "Salida oficial registrada") {
+      const flight = flights.find(item => item.id === Number(id));
+      if (!flight || flight.estado === "Finalizado") return;
+      const isArrival = String(flight.tipo || "").toLowerCase() === "llegada";
+      const response = await fetch(`/api/vuelos/${flight.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "Finalizado" })
+      });
+      if (!response.ok) return showToast(isArrival ? "No se pudo confirmar la llegada." : "No se pudo confirmar la salida oficial.");
+      await loadData();
+      const completedFlight = { ...flight, estado: "Finalizado" };
+      if (isArrival) {
+        await scheduleDepartureFromArrival(completedFlight);
+      } else {
+        showToast(`${flight.codigo} salió oficialmente. Se programará una nueva operación.`);
+        queueIncomingFlight(reason);
+      }
+      renderAll();
+    }
+
+    async function approveIncomingFlight(tempId) {
+      if (!canApproveIncoming()) return showToast("Solo Administrador o Torre de control pueden autorizar operaciones.");
+      if (activeFlightCount() >= LIVE_FLIGHT_LIMIT) return showToast(`No se puede autorizar: límite de ${LIVE_FLIGHT_LIMIT} vuelos activos alcanzado.`);
+      const incoming = incomingFlights.find(flight => flight.tempId === tempId);
+      if (!incoming) return showToast("La solicitud ya no está disponible.");
+      const response = await fetch("/api/vuelos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codigo: incoming.codigo,
+          ruta: incoming.ruta,
+          hora: incoming.hora,
+          puerta: incoming.puerta,
+          estado: "Programado",
+          tipo: incoming.tipo
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) return showToast(result.error || "No se pudo autorizar la operación.");
+      if (incoming.requestId) await fetch(`/api/solicitudes/${incoming.requestId}`, { method: "DELETE" });
+      incomingFlights = incomingFlights.filter(flight => flight.tempId !== tempId);
+      await loadData();
+      renderAll();
+      showToast(`${incoming.codigo} autorizado y agregado a Vuelos en tiempo real.`);
+      scheduleNextLiveOps();
+    }
+
+    async function rejectIncomingFlight(tempId) {
+      const incoming = incomingFlights.find(flight => flight.tempId === tempId);
+      if (incoming?.requestId) await fetch(`/api/solicitudes/${incoming.requestId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estado: "Rechazada" }) });
+      incomingFlights = incomingFlights.filter(flight => flight.tempId !== tempId);
+      renderIncomingFlights();
+      showToast(incoming ? `${incoming.codigo} rechazado por torre/control.` : "Solicitud rechazada.");
+      scheduleNextLiveOps();
+    }
+
+    async function liveOpsTick() {
+      if (!currentUser || liveOpsBusy || incomingFlights.length) return scheduleNextLiveOps();
+      liveOpsBusy = true;
+      try {
+        if (activeFlightCount() >= LIVE_FLIGHT_LIMIT) {
+          const candidates = flights.filter(f => f.estado !== "Finalizado");
+          const selected = candidates[randomBetween(0, candidates.length - 1)];
+          if (selected) await markOfficialDeparture(selected.id, "Liberación automática por límite operativo");
+        } else {
+          queueIncomingFlight("Solicitud generada por programación viva del aeropuerto");
+        }
+      } finally {
+        liveOpsBusy = false;
+        scheduleNextLiveOps();
+      }
+    }
+
+    function scheduleNextLiveOps() {
+      if (liveOpsTimer) clearTimeout(liveOpsTimer);
+      liveOpsTimer = setTimeout(liveOpsTick, liveOpsIntervalMs());
+      renderIncomingFlights();
+    }
+
+    function startLiveOpsLoop() {
+      if (liveOpsTimer) return;
+      scheduleDepartureQueueCheck();
+      setTimeout(() => {
+        if (currentUser && !incomingFlights.length) queueIncomingFlight("Primera operación detectada por torre");
+        scheduleNextLiveOps();
+      }, 30000);
+    }
+    function towerWeatherApplied() {
+      return roleActions.some(item => String(item.actor || "").toLowerCase() === "torre" && String(item.tipo || "").toUpperCase() === "TOWER_WEATHER");
+    }
+
+    function towerWeatherData() {
+      const delayed = flights.filter(f => f.estado === "Retrasado").length;
+      const active = flights.filter(f => f.estado !== "Finalizado").length;
+      const applied = towerWeatherApplied();
+      return {
+        applied,
+        wind: applied ? "Viento 19 kt" : (delayed ? "Viento 17 kt" : "Viento 14 kt"),
+        visibility: delayed > 1 ? "Visibilidad 6 km" : "Visibilidad 8 km",
+        runway: active > 12 || delayed ? "Pista sugerida 01" : "Pista sugerida 02",
+        note: applied ? "Recomendacion aplicada por torre: priorizar pista 01 y ajustar capacidad." : "Recomendacion pendiente: torre puede aplicar priorizacion operativa."
+      };
+    }
+
+    function renderCapacity() {
+      const activeFlights = flights.filter(f => f.estado !== "Finalizado").length;
+      const delayed = flights.filter(f => f.estado === "Retrasado").length;
+      const weather = towerWeatherData();
+      const adjustment = weather.applied ? 7 : 0;
+      const data = [
+        ["Terminal T1", Math.max(45, Math.min(94, 58 + activeFlights * 2 - adjustment)), "var(--primary)"],
+        ["Terminal T2 internacional", Math.max(35, Math.min(86, 48 + activeFlights - delayed * 2 - adjustment)), "var(--secondary)"],
+        ["Zona de carga", Math.max(30, Math.min(78, 42 + resources.length * 2 - delayed)), "var(--blue)"]
+      ];
+      if (weather.applied) data.push(["Pista 01 priorizada", 100, "var(--green)"]);
+      document.getElementById("capacityList").innerHTML = data.map(([name, value, color]) => `
+        <div class="bar-row">
+          <div class="bar-label"><span>${name}</span><span>${value}%</span></div>
+          <div class="bar"><span style="width:${value}%;background:${color}"></span></div>
+        </div>
+      `).join("") + (weather.applied ? `<div class="alert" style="margin-top:14px"><strong>Recomendacion meteorologica activa</strong><p>${escapeHtml(weather.note)}</p></div>` : "");
+    }
+    function renderProgramacion() {
+      const groups = {
+        morningList: flights.filter(f => parseInt(f.hora) < 15),
+        afternoonList: flights.filter(f => parseInt(f.hora) >= 15 && parseInt(f.hora) < 19),
+        nightList: flights.filter(f => parseInt(f.hora) >= 19)
+      };
+      Object.entries(groups).forEach(([id, list]) => {
+        document.getElementById(id).innerHTML = (list.length ? list : [{ codigo: "Sin vuelos", ruta: "No hay operaciones asignadas", estado: "Programado", puerta: "-", hora: "-" }]).map(f => `
+          <div class="alert"><strong>${f.codigo} <span class="badge ${statusClass[f.estado] || "neutral"}">${f.estado}</span></strong><p>${f.ruta} · ${f.hora} · Puerta ${f.puerta}</p></div>
+        `).join("");
+      });
+    }
+
+    function renderActiveProgramacion() {
+      const activeTasks = [
+        ["Embarque de pasajeros", flights[1]?.codigo || "AVA240", "Puerta A-04", "En progreso", "warn"],
+        ["Inspeccion de pista", "Pista 01", "Torre + operaciones", "Disponible", "ok"],
+        ["Abastecimiento de combustible", flights[2]?.codigo || "AAL982", "Plataforma B-02", "Prioridad alta", "bad"],
+        ["Limpieza de cabina", flights[3]?.codigo || "LAT4412", "Posicion C-08", "Asignado", "info"],
+        ["Control documental", flights[0]?.codigo || "IBE3421", "Mostrador internacional", "Validado", "ok"],
+        ["Revision meteorologica", "Zona norte", "Supervisor de turno", "Observacion", "warn"]
+      ];
+      document.getElementById("activeProgramList").innerHTML = activeTasks.map(([title, code, place, state, cls]) => `
+        <div class="alert"><strong>${title} <span class="badge ${cls}">${state}</span></strong><p>${code} · ${place} · Actualizado hace ${randomBetween(1, 8)} min</p></div>
+      `).join("");
+
+      const assignments = flights.slice(0, 6).map((flight, index) => ({
+        time: flight.hora,
+        resource: index % 2 ? "Pista 02 / Puerta " + flight.puerta : "Pista 01 / Puerta " + flight.puerta,
+        detail: `${flight.codigo} · ${flight.tipo} · ${flight.estado}`
+      }));
+      document.getElementById("resourceScheduleList").innerHTML = assignments.map(item => `
+        <div class="alert"><strong>${item.time} <span class="badge neutral">Programado</span></strong><p>${item.resource} · ${item.detail}</p></div>
+      `).join("");
+    }
+
+
+    function syncTowerSimulator() {
+      const frame = document.getElementById("towerSimulatorFrame");
+      if (!frame?.contentWindow) return;
+      const payload = flights
+        .filter(flight => operationalStatusFor(flight) !== "Finalizado")
+        .map(flight => ({
+          id: flight.id,
+          codigo: flight.codigo,
+          ruta: flight.ruta,
+          hora: flight.hora,
+          puerta: flight.puerta,
+          estado: operationalStatusFor(flight),
+          tipo: flight.tipo
+        }));
+      frame.contentWindow.postMessage({
+        type: "AEROCONTROL_FLIGHTS", flights: payload
+      }, location.origin);
+    }
+    async function refreshTowerSource() {
+      if (!currentUser) return;
+      try {
+        const response = await fetch("/api/vuelos", { cache: "no-store" });
+        if (!response.ok) return;
+        flights = await response.json();
+        renderFlights(document.getElementById("globalSearch").value);
+        renderTraffic();
+      } catch (error) {
+        console.warn("No se pudo refrescar la fuente del radar", error);
+      }
+    }
+    window.addEventListener("message", event => {
+      const frame = document.getElementById("towerSimulatorFrame");
+      if (event.source !== frame?.contentWindow || event.origin !== location.origin) return;
+      if (event.data?.type === "AEROCONTROL_SURFACE_READY") syncTowerSimulator();
+      if (event.data?.type === "AEROCONTROL_SURFACE_HEIGHT") {
+        const height = Number(event.data.height);
+        if (Number.isFinite(height)) frame.style.height = `${Math.max(600, Math.min(1600, height))}px`;
+      }
+      if (event.data?.type !== "AEROCONTROL_SURFACE_STATUS" || event.data.source !== "system") return;
+      const stats = event.data.stats;
+      if (!stats || !Number.isInteger(stats.runway) || !Number.isInteger(stats.stands)) return;
+      document.getElementById("runwayStat").textContent = Math.max(0, stats.runway);
+      document.getElementById("platformStat").textContent = Math.max(0, stats.stands);
+    });
+    function renderTraffic() {
+      const runwayStat = document.getElementById("runwayStat");
+      const platformStat = document.getElementById("platformStat");
+      const trafficDelayStat = document.getElementById("trafficDelayStat");
+      const trafficList = document.getElementById("trafficList");
+      if (!runwayStat || !platformStat || !trafficDelayStat || !trafficList) return;
+      trafficDelayStat.textContent = flights.filter(f => operationalStatusFor(f) === "Retrasado").length;
+      trafficList.innerHTML = flights.filter(f => operationalStatusFor(f) !== "Finalizado").slice(0, 8).map(f => `
+        <div class="alert"><strong>${f.codigo} <span class="badge ${statusClass[operationalStatusFor(f)] || "neutral"}">${operationalStatusFor(f)}</span></strong><p>${f.ruta} · ${f.tipo} · Puerta ${f.puerta}. Seguimiento activo desde torre.</p></div>
+      `).join("");
+      syncTowerSimulator();
+    }
+
+    function renderResources() {
+      const source = resources.length ? resources : [
+        { id: 0, tipo: "Pista", codigo: "Pista 01", estado: "Disponible", detalle: "Habilitada para llegadas y salidas programadas." },
+        { id: 0, tipo: "Pista", codigo: "Pista 02", estado: "En observación", detalle: "Posible restricción meteorológica. Revisión de torre pendiente." },
+        { id: 0, tipo: "Puerta", codigo: "A-04", estado: "Embarque", detalle: "Asignada a vuelo AVA240 con embarque activo." },
+        { id: 0, tipo: "Puerta", codigo: "B-02", estado: "Retrasado", detalle: "Asignada a vuelo AAL982 por demora operativa." },
+        { id: 0, tipo: "Soporte", codigo: "Equipo GSE-01", estado: "Disponible", detalle: "Equipo terrestre disponible para asistencia de aeronaves." },
+        { id: 0, tipo: "Soporte", codigo: "Bus PB-02", estado: "Mantenimiento", detalle: "Unidad en revisión preventiva antes del siguiente turno." }
+      ];
+      const groups = source.reduce((acc, resource) => {
+        const type = resource.tipo || "Recurso";
+        if (!acc[type]) acc[type] = [];
+        acc[type].push(resource);
+        return acc;
+      }, {});
+      const RESOURCE_STATES_BY_TYPE = {
+        "Pista": ["Disponible", "Ocupada", "En observación", "Mantenimiento"],
+        "Puerta": ["Disponible", "Embarque", "Ocupada", "Retrasado", "Mantenimiento"],
+        "Soporte": ["Disponible", "Ocupada", "Mantenimiento"]
+      };
+      const DEFAULT_RESOURCE_STATES = ["Disponible", "Ocupada", "En observación", "Mantenimiento"];
+      document.getElementById("resourcesGrid").innerHTML = Object.entries(groups).map(([title, items]) => `
+        <div class="panel">
+          <div class="panel-head"><h3>${title}</h3><span class="badge neutral">${items.length} recursos</span></div>
+          <div class="panel-body stack">
+            ${items.map(resource => {
+              const ok = resource.estado === "Disponible" || resource.estado === "Libre";
+              const warn = resource.estado === "Embarque" || resource.estado === "Ocupada" || resource.estado === "En observación";
+              const cls = ok ? "ok" : warn ? "warn" : "bad";
+              const editable = Number(resource.id) > 0 && canUse("updateResource");
+              const validStates = RESOURCE_STATES_BY_TYPE[resource.tipo] || DEFAULT_RESOURCE_STATES;
+              const stateOptions = validStates.includes(resource.estado) ? validStates : [resource.estado, ...validStates];
+              return `<div class="alert">
+                <strong>${resource.codigo} <span class="badge ${cls}">${resource.estado}</span></strong>
+                <p>${resource.detalle}</p>
+                <div class="resource-actions">
+                  <select data-resource-state="${resource.id}" ${editable ? "" : "disabled"}>
+                    ${stateOptions.map(state => `<option ${state === resource.estado ? "selected" : ""}>${state}</option>`).join("")}
+                  </select>
+                  <button class="btn small secondary" data-save-resource="${resource.id}" ${editable ? "" : "disabled"}>Guardar</button>
+                </div>
+              </div>`;
+            }).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    const reportTypeOptions = [
+      "Operacional",
+      "Incidencias operativas",
+      "Recursos aeroportuarios",
+      "Puntualidad",
+      "Auditoría del sistema",
+      "Disponibilidad operacional",
+      "Seguridad y accesos",
+      "Capacidad de terminal",
+      "Programación operativa",
+      "Control de tráfico aéreo"
+    ];
+
+
+
+    const reportTitleOptions = {
+      "Operacional": ["Reporte diario de vuelos", "Resumen operativo por turno", "Estado general de operaciones", "Consolidado de llegadas y salidas"],
+      "Incidencias operativas": ["Reporte de incidencias abiertas", "Seguimiento de incidencias críticas", "Incidencias por prioridad y responsable", "Cierre de incidencias operativas"],
+      "Recursos aeroportuarios": ["Disponibilidad de pistas y puertas", "Asignación de recursos aeroportuarios", "Uso de posiciones de plataforma", "Estado de soporte terrestre"],
+      "Puntualidad": ["Reporte de puntualidad operacional", "Demoras promedio por vuelo", "Cumplimiento de horarios programados", "Análisis de retrasos por operación"],
+      "Auditoría del sistema": ["Reporte de acciones auditadas", "Historial de cambios del sistema", "Trazabilidad de usuarios y roles", "Control de bitácora operativa"],
+      "Disponibilidad operacional": ["Reporte de disponibilidad del sistema", "Continuidad de servicios aeroportuarios", "Estado de operación de terminal", "Indicadores de disponibilidad diaria"],
+      "Seguridad y accesos": ["Reporte de seguridad y accesos", "Control de accesos no autorizados", "Validación de roles operativos", "Eventos críticos de seguridad"],
+      "Capacidad de terminal": ["Reporte de capacidad de terminal", "Ocupación de terminales", "Flujo de pasajeros y operaciones", "Capacidad disponible por zona"],
+      "Programación operativa": ["Reporte de programación operativa", "Actividades programadas por turno", "Planificación de vuelos y recursos", "Cumplimiento de programación diaria"],
+      "Control de tráfico aéreo": ["Reporte de tráfico aéreo activo", "Movimientos en pista y plataforma", "Seguimiento de aproximaciones y salidas", "Coordinación con torre de control"]
+    };
+
+    function reportTitleOptionsFor(type, selected = "") {
+      const list = reportTitleOptions[type] || ["Reporte operacional general"];
+      return selected && !list.includes(selected) ? [selected, ...list] : list;
+    }
+
+    function reportDescriptionFor(type, title) {
+      const active = flights.filter(f => f.estado !== "Finalizado").length;
+      const completed = flights.filter(f => f.estado === "Finalizado").length;
+      const delayed = flights.filter(f => f.estado === "Retrasado").length;
+      const openIncidents = metrics.incidencias ?? alerts.length ?? 0;
+      const availableResources = resources.filter(r => r.estado === "Disponible" || r.estado === "Libre").length;
+      const totalResources = resources.length || 1;
+      if (/incidencia/i.test(type)) return openIncidents + " incidencias abiertas para revisión, atención y cierre por responsable.";
+      if (/recurso/i.test(type)) return availableResources + " de " + totalResources + " recursos disponibles entre pistas, puertas, posiciones y soporte.";
+      if (/puntualidad|tráfico|trafico/i.test(type)) return active + " vuelos activos, " + delayed + " con retraso y seguimiento desde torre de control.";
+      if (/auditor/i.test(type)) return (metrics.auditadas ?? 246) + " acciones auditadas con trazabilidad en bitácora.";
+      if (/disponibilidad|capacidad/i.test(type)) return "Disponibilidad operacional estimada en 99.3% con monitoreo de terminal y servicios críticos.";
+      if (/seguridad|acceso/i.test(type)) return "Accesos, roles y acciones críticas revisadas para continuidad segura de la operación.";
+      if (/programación|programacion/i.test(type)) return active + " operaciones activas consideradas dentro de la programación del turno.";
+      return flights.length + " vuelos monitoreados, " + completed + " finalizados y " + delayed + " con retraso.";
+    }
+
+    function reportBadgeClass(type) {
+      if (/incidencia|riesgo|seguridad|acceso/i.test(type)) return "warn";
+      if (/auditor/i.test(type)) return "neutral";
+      if (/tráfico|trafico|puntualidad|capacidad/i.test(type)) return "info";
+      return "ok";
+    }
+
+    function getReportItems() {
+      const today = new Date().toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+      const completed = flights.filter(f => f.estado === "Finalizado").length;
+      const delayed = flights.filter(f => f.estado === "Retrasado").length;
+      const openIncidents = metrics.incidencias ?? alerts.length ?? 0;
+      const availableResources = resources.filter(r => r.estado === "Disponible" || r.estado === "Libre").length;
+      const totalResources = resources.length || 1;
+
+      return [
+        { title: "Reporte diario de vuelos", desc: `${flights.length} vuelos monitoreados, ${completed || 4} finalizados y ${delayed} con retraso.`, type: "Operacional", date: today },
+        { title: "Reporte de incidencias operativas", desc: `${openIncidents} incidencias abiertas con seguimiento por prioridad y responsable.`, type: "Incidencias operativas", date: today },
+        { title: "Reporte de recursos aeroportuarios", desc: `${availableResources} de ${totalResources} recursos disponibles entre pistas, puertas y posiciones.`, type: "Recursos aeroportuarios", date: today },
+        { title: "Reporte de puntualidad", desc: `Retraso promedio de ${metrics.retrasoPromedio ?? 14} minutos en operaciones activas.`, type: "Puntualidad", date: today },
+        { title: "Reporte de auditoría del sistema", desc: `${metrics.auditadas ?? 246} acciones registradas en bitácora para trazabilidad.`, type: "Auditoría del sistema", date: today },
+        { title: "Reporte de disponibilidad", desc: "Disponibilidad estimada del sistema: 99.3% durante la jornada operativa.", type: "Disponibilidad operacional", date: today }
+      ];
+    }
+
+    function reportIdentity(report) {
+      return String(report.id || `${report.type || ""}|${report.title || ""}|${report.date || ""}`);
+    }
+
+    function normalizeReportFromApi(report) {
+      const dateInput = report.fecha_generacion || report.dateInput || new Date().toISOString().slice(0, 10);
+      return {
+        id: report.id,
+        type: report.tipo || report.type || "Operacional",
+        title: report.titulo || report.title || "Reporte operacional",
+        desc: report.contenido || report.desc || "Reporte generado desde AeroControl Ops.",
+        dateInput,
+        date: formatReportDate(dateInput),
+        source: report.id ? "mysql" : (report.source || "base"),
+        key: String(report.id || `${report.tipo || report.type}|${report.titulo || report.title}|${dateInput}`)
+      };
+    }
+
+    function getAllReportItems() {
+      if (generatedReports.length) return generatedReports.map(normalizeReportFromApi);
+      return getReportItems().map((report, baseIndex) => ({ ...report, source: "base", baseIndex, key: reportIdentity(report) }));
+    }
+
+    async function deleteReport(id) {
+      if (!canUse("generateReport")) return showToast("Tu perfil no puede eliminar reportes.");
+      const index = Number(id);
+      const report = getAllReportItems()[index];
+      if (!report) return showToast("Reporte no encontrado.");
+
+      if (report.id) {
+        const response = await fetch(`/api/reportes/${report.id}`, { method: "DELETE" });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) return showToast(result.error || "No se pudo eliminar el reporte en MySQL.");
+        await loadData();
+      } else {
+        generatedReports = generatedReports.filter((_, itemIndex) => itemIndex !== index);
+      }
+
+      renderReports();
+      showToast(`Reporte eliminado: ${report.title}`);
+    }
+
+    function renderReports() {
+      const completed = flights.filter(f => f.estado === "Finalizado").length;
+      const openIncidents = metrics.incidencias ?? alerts.length ?? 0;
+      document.getElementById("incidentKpi").textContent = openIncidents;
+      document.getElementById("alertCount").textContent = openIncidents;
+      document.getElementById("doneKpi").textContent = completed || 91;
+      document.getElementById("closedKpi").textContent = Math.max(18, alerts.filter(a => a.estado === "Cerrada").length);
+      document.getElementById("auditKpi").textContent = metrics.auditadas ?? 246;
+
+      const items = getAllReportItems().map((base, index) => ({ ...base, ...(reportEdits[index] || {}) }));
+      const list = document.getElementById("reportList");
+      list.innerHTML = items.map((report, index) => {
+        const badgeClass = reportBadgeClass(report.type);
+        return `
+          <div class="alert report-card" data-report-card="${index}">
+            <div class="report-card-head">
+              <strong>${escapeHtml(report.title)} <span class="badge ${badgeClass}">${escapeHtml(report.type)}</span></strong>
+              ${canUse("generateReport") ? `<span style="display:flex;gap:8px;align-items:center"><button class="btn small secondary" data-edit-report="${index}">Editar reporte</button><button class="btn small secondary" data-delete-report="${index}">Eliminar reporte</button></span>` : ""}
+            </div>
+            <p>${escapeHtml(report.desc)}</p>
+            <small>Generado: ${escapeHtml(report.date)} · Fuente: vuelos, recursos, incidencias y bitácora.</small>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function toDateInputValue(dateText) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateText || ""))) return dateText;
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function formatReportDate(dateValue) {
+      if (!dateValue) return new Date().toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+      const parsed = new Date(`${dateValue}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) return dateValue;
+      return parsed.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    function closeReportEditor() {
+      document.getElementById("reportEditorBackdrop")?.remove();
+    }
+
+    function createReport() {
+      if (!canUse("generateReport")) return showToast("Tu perfil no puede generar reportes.");
+      const type = reportTypeOptions[0];
+      const title = reportTitleOptionsFor(type)[0];
+      openReportEditor({
+        mode: "create",
+        index: null,
+        current: {
+          type,
+          title,
+          desc: reportDescriptionFor(type, title),
+          dateInput: new Date().toISOString().slice(0, 10),
+          date: formatReportDate(new Date().toISOString().slice(0, 10))
+        }
+      });
+    }
+
+    function editReport(id) {
+      if (!canUse("generateReport")) return showToast("Tu perfil no puede editar reportes.");
+      const index = Number(id);
+      const base = getAllReportItems()[index];
+      if (!base) return showToast("Reporte no encontrado.");
+      const current = { ...base, ...(reportEdits[index] || {}) };
+      current.dateInput = current.dateInput || reportEdits[index]?.dateInput || toDateInputValue(current.date);
+      openReportEditor({ mode: "edit", index, current });
+    }
+
+    function openReportEditor({ mode, index, current }) {
+      const isCreate = mode === "create";
+      const currentDateInput = current.dateInput || toDateInputValue(current.date);
+      closeReportEditor();
+      const backdrop = document.createElement("div");
+      backdrop.className = "report-edit-backdrop";
+      backdrop.id = "reportEditorBackdrop";
+      backdrop.innerHTML = `
+        <div class="report-edit-panel" role="dialog" aria-modal="true" aria-labelledby="reportEditTitle">
+          <div class="report-edit-head">
+            <h3 id="reportEditTitle">${isCreate ? "Generar reporte operacional" : "Editar reporte operacional"}</h3>
+            <button class="btn small secondary" type="button" data-close-report-editor>Cerrar</button>
+          </div>
+          <form class="report-edit-body" id="reportEditForm">
+            <div class="report-edit-grid">
+              <label>Tipo de reporte
+                <select id="reportEditType">
+                  ${reportTypeOptions.map(type => `<option value="${escapeHtml(type)}" ${type === current.type ? "selected" : ""}>${escapeHtml(type)}</option>`).join("")}
+                </select>
+              </label>
+              <label>Fecha de generación
+                <input id="reportEditDate" type="date" value="${escapeHtml(currentDateInput)}">
+              </label>
+            </div>
+            <label>Título del reporte
+              <select id="reportEditTitleInput">
+                ${reportTitleOptionsFor(current.type, current.title).map(title => `<option value="${escapeHtml(title)}" ${title === current.title ? "selected" : ""}>${escapeHtml(title)}</option>`).join("")}
+              </select>
+            </label>
+            <label>Contenido del reporte
+              <textarea id="reportEditDesc" required>${escapeHtml(current.desc)}</textarea>
+            </label>
+            <div class="report-source-box">
+              <strong>Fuente automática:</strong> vuelos, recursos, incidencias y bitácora. Esta fuente no se modifica manualmente.
+            </div>
+            <div class="actions">
+              <button class="btn primary" type="submit">${isCreate ? "Crear reporte" : "Guardar reporte"}</button>
+              <button class="btn secondary" type="button" data-close-report-editor>Cancelar</button>
+            </div>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(backdrop);
+
+      backdrop.addEventListener("click", event => {
+        if (event.target === backdrop || event.target.closest("[data-close-report-editor]")) closeReportEditor();
+      });
+
+      document.getElementById("reportEditType").addEventListener("change", event => {
+        const titleSelect = document.getElementById("reportEditTitleInput");
+        titleSelect.innerHTML = reportTitleOptionsFor(event.target.value).map(title => `<option value="${escapeHtml(title)}">${escapeHtml(title)}</option>`).join("");
+        document.getElementById("reportEditDesc").value = reportDescriptionFor(event.target.value, titleSelect.value);
+      });
+
+      document.getElementById("reportEditTitleInput").addEventListener("change", event => {
+        const type = document.getElementById("reportEditType").value;
+        document.getElementById("reportEditDesc").value = reportDescriptionFor(type, event.target.value);
+      });
+
+      document.getElementById("reportEditForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const dateInput = document.getElementById("reportEditDate").value;
+        const data = {
+          tipo: document.getElementById("reportEditType").value,
+          titulo: document.getElementById("reportEditTitleInput").value.trim() || current.title,
+          contenido: document.getElementById("reportEditDesc").value.trim() || current.desc,
+          fecha_generacion: dateInput
+        };
+        const reportId = current.id;
+        const response = await fetch(isCreate ? "/api/reportes" : `/api/reportes/${reportId}`, {
+          method: isCreate ? "POST" : "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) return showToast(result.error || "No se pudo guardar el reporte en MySQL.");
+        await loadData();
+        closeReportEditor();
+        renderReports();
+        showToast(isCreate ? "Reporte creado y guardado en MySQL." : "Reporte actualizado en MySQL.");
+      });
+    }
+    function canManageUsers() {
+      const area = String(currentUser?.area || "").toLowerCase();
+      const role = String(currentUser?.rol || "").toLowerCase();
+      return (
+        role.includes("administrador") ||
+        role.includes("supervisor") ||
+        area.includes("gerencia") ||
+        area.includes("corpac") ||
+        area.includes("torre")
+      );
+    }
+
+    function renderUsers() {
+      const container = document.getElementById("usersList");
+      if (!container) return;
+
+      if (!users.length) {
+        container.innerHTML = `
+          <div class="alert">
+            <strong>Sin usuarios cargados</strong>
+            <p>Presiona actualizar para consultar usuarios desde MySQL.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = users.map(user => {
+        const editable = canManageUsers();
+        const enabled = user.habilitado !== false && Number(user.habilitado) !== 0;
+        const isCurrentUser = Number(user.id) === Number(currentUser?.id);
+        return `
+          <div class="alert">
+            <div class="user-state-row">
+              <strong>${escapeHtml(user.nombre)} ${escapeHtml(user.apellido)} <span class="badge neutral">${escapeHtml(user.rol)}</span></strong>
+              <span class="badge ${enabled ? "ok" : "bad"}">${enabled ? "Habilitado" : "Deshabilitado"}</span>
+            </div>
+            <p>DNI: ${escapeHtml(user.dni)} · Área: ${escapeHtml(user.area)} · ${escapeHtml(user.correo)}</p>
+            <div class="user-state-row">
+              <label class="account-toggle" title="${isCurrentUser ? "No puedes deshabilitar tu propia sesión" : "Habilitar o deshabilitar acceso"}">
+                <input type="checkbox" data-toggle-user="${user.id}" ${enabled ? "checked" : ""} ${!editable || isCurrentUser ? "disabled" : ""}>
+                <span class="toggle-track" aria-hidden="true"></span>
+                <span>Enable</span>
+              </label>
+              ${editable ? `<button class="btn small primary" data-edit-user="${user.id}">Editar usuario</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      if (!canManageUsers()) {
+        container.innerHTML += `
+          <div class="alert">
+            <strong>Gestión restringida</strong>
+            <p>Tu perfil puede consultar usuarios, pero solo Administrador, Supervisor, Torre de control y Gerencia/CORPAC pueden modificarlos.</p>
+          </div>
+        `;
+      }
+    }
+
+    async function loadUsers() {
+      const response = await fetch("/api/usuarios");
+      if (!response.ok) {
+        users = [];
+        renderUsers();
+        return;
+      }
+      users = await response.json();
+      renderUsers();
+    }
+
+    async function editUser(id) {
+      if (!canManageUsers()) return showToast("Tu perfil no puede modificar usuarios.");
+      const user = users.find(item => item.id === Number(id));
+      if (!user) return showToast("Usuario no encontrado.");
+
+      const nombre = prompt("Nombre:", user.nombre);
+      if (nombre === null) return;
+      const apellido = prompt("Apellido:", user.apellido);
+      if (apellido === null) return;
+      const celular = prompt("Celular:", user.celular);
+      if (celular === null) return;
+      const correo = prompt("Correo:", user.correo);
+      if (correo === null) return;
+      const rol = prompt("Rol: Operador, Supervisor o Administrador", user.rol);
+      if (rol === null) return;
+      const area = prompt("Área:", user.area);
+      if (area === null) return;
+
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          apellido: apellido.trim(),
+          celular: celular.trim(),
+          correo: correo.trim(),
+          rol: rol.trim(),
+          area: area.trim(),
+          habilitado: user.habilitado !== false
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) return showToast(result.error || "No se pudo actualizar el usuario.");
+      await loadUsers();
+      showToast(`Usuario ${result.nombre} ${result.apellido} actualizado.`);
+    }
+
+    async function setUserEnabled(id, enabled) {
+      if (!canManageUsers()) return showToast("Tu perfil no puede cambiar el acceso de usuarios.");
+      const user = users.find(item => item.id === Number(id));
+      if (!user) return showToast("Usuario no encontrado.");
+
+      const response = await fetch(`/api/usuarios/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: user.nombre,
+          apellido: user.apellido,
+          celular: user.celular,
+          correo: user.correo,
+          rol: user.rol,
+          area: user.area,
+          habilitado: enabled
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        await loadUsers();
+        return showToast(result.error || "No se pudo cambiar el acceso del usuario.");
+      }
+      await loadUsers();
+      showToast(`${result.nombre} ${result.apellido}: acceso ${result.habilitado ? "habilitado" : "deshabilitado"}.`);
+    }
+
+
+    const towerMessageOptions = [
+      "Confirme posición y nivel de vuelo actual.",
+      "Reporte motivo de demora y tiempo estimado de recuperación.",
+      "Mantenga patrón de espera hasta nueva autorización.",
+      "Autorizado a continuar ruta programada.",
+      "Prioridad de aproximación aprobada por torre.",
+      "Confirme combustible disponible y condición operacional.",
+      "Proceda a puerta asignada y mantenga comunicación activa.",
+      "Espere separación por tráfico en pista principal."
+    ];
+
+    function pilotResponseFor(flight, message) {
+      const status = operationalStatusFor(flight);
+      const detail = buildFlightDetails(flight);
+      const base = `${flight.codigo} confirma recepción. Ruta ${detail.route.fromCode}-${detail.route.toCode}.`;
+      if (message.includes("demora")) {
+        return `${base} Demora reportada por ${detail.delayReason}; estimamos normalizar operación hacia ${detail.estimated}.`;
+      }
+      if (message.includes("patrón")) {
+        return `${base} Mantendremos espera segura, altitud ${detail.altitude}, velocidad ${detail.speed}. Solicitamos nueva instrucción en 5 minutos.`;
+      }
+      if (message.includes("combustible")) {
+        return `${base} Combustible dentro de margen operacional, aeronave ${detail.aircraft}, squawk ${detail.squawk}.`;
+      }
+      if (message.includes("puerta")) {
+        return `${base} Procedemos a ${flight.puerta}. Estado actual: ${status}.`;
+      }
+      if (message.includes("Prioridad")) {
+        return `${base} Prioridad recibida. Coordinamos descenso y aproximación con control.`;
+      }
+      if (message.includes("Autorizado")) {
+        return `${base} Continuamos ruta programada. Llegada estimada ${detail.estimated}.`;
+      }
+      if (message.includes("separación")) {
+        return `${base} Reducimos velocidad y mantenemos separación. Causa probable: ${detail.delayReason}.`;
+      }
+      return `${base} Posición operacional actual: ${status}; salida ${detail.scheduled}, llegada estimada ${detail.estimated}.`;
+    }
+
+    function closeFlightComms() {
+      document.getElementById("flightCommsModal")?.remove();
+    }
+
+    function openFlightComms(id) {
+      const flight = flights.find(item => item.id === Number(id));
+      if (!flight) return showToast("No se encontró el vuelo para comunicación.");
+      closeFlightComms();
+      const detail = buildFlightDetails(flight);
+      const status = operationalStatusFor(flight);
+      const defaultMessage = status === "Retrasado" ? towerMessageOptions[1] : towerMessageOptions[0];
+      const backdrop = document.createElement("div");
+      backdrop.id = "flightCommsModal";
+      backdrop.className = "report-edit-backdrop";
+      backdrop.innerHTML = `
+        <div class="report-edit-panel comms-panel" role="dialog" aria-modal="true" aria-labelledby="flightCommsTitle">
+          <div class="report-edit-head">
+            <div>
+              <h3 id="flightCommsTitle">Comunicación torre - avión</h3>
+              <p style="margin:4px 0 0;color:var(--muted);font-size:13px">${escapeHtml(flight.codigo)} · ${escapeHtml(flight.ruta)}</p>
+            </div>
+            <button class="btn small secondary" type="button" data-close-flight-comms>Cerrar</button>
+          </div>
+          <div class="report-edit-body">
+            <div class="comms-summary">
+              <div><span>Estado</span><strong>${escapeHtml(status)}</strong></div>
+              <div><span>Salida</span><strong>${escapeHtml(detail.scheduled)}</strong></div>
+              <div><span>Llegada estimada</span><strong>${escapeHtml(detail.estimated)}</strong></div>
+              <div><span>Puerta</span><strong>${escapeHtml(flight.puerta)}</strong></div>
+            </div>
+            <label>Mensaje de torre
+              <select id="towerMessageSelect">
+                ${towerMessageOptions.map(option => `<option value="${escapeHtml(option)}" ${option === defaultMessage ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+              </select>
+            </label>
+            <div class="comms-thread">
+              <div class="comms-bubble tower" id="towerMessageBubble">Torre: ${escapeHtml(defaultMessage)}</div>
+              <div class="comms-bubble aircraft" id="aircraftResponseBubble">Avión: ${escapeHtml(pilotResponseFor(flight, defaultMessage))}</div>
+            </div>
+            <div class="report-source-box"><strong>Observación operacional:</strong> ${escapeHtml(detail.delayReason)}. Esta comunicación ayuda a torre, administrador y supervisión a tomar decisiones rápidas.</div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button class="btn secondary" type="button" data-close-flight-comms>Cancelar</button>
+              <button class="btn primary" type="button" data-send-flight-comms="${flight.id}">Enviar comunicación</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(backdrop);
+      const select = document.getElementById("towerMessageSelect");
+      select.addEventListener("change", () => {
+        document.getElementById("towerMessageBubble").textContent = `Torre: ${select.value}`;
+        document.getElementById("aircraftResponseBubble").textContent = `Avión: ${pilotResponseFor(flight, select.value)}`;
+      });
+    }
+
+
+    function recentRoleActions(actor = actorKey()) {
+      return roleActions.filter(item => String(item.actor || "").toLowerCase() === actor).slice(0, 5);
+    }
+
+    async function logRoleAction(tipo, detalle, datos = {}) {
+      const response = await fetch("/api/role-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: actorKey(), tipo, detalle, datos })
+      });
+      if (!response.ok) throw new Error("No se pudo registrar la accion del rol");
+      roleActions = await fetch("/api/role-tools").then(response => response.ok ? response.json() : []);
+    }
+
+    function roleToolRecentHtml(actor = actorKey()) {
+      const rows = recentRoleActions(actor);
+      if (!rows.length) return '<p>Aun no hay acciones recientes para este rol.</p>';
+      return rows.map(item => `<div class="timeline-item"><span>${escapeHtml(item.detalle)}</span><strong>${new Date(item.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</strong></div>`).join("");
+    }
+
+    function towerConflictState() {
+      const active = flights.filter(f => f.estado !== "Finalizado");
+      const sameGate = active.find((flight, index) => active.some((other, otherIndex) => otherIndex !== index && other.puerta === flight.puerta));
+      if (sameGate) return { level: "Critico", badge: "bad", text: `Alerta automatica: posible cruce operativo en ${sameGate.puerta} con ${sameGate.codigo}.`, action: "Separar secuencia y validar autorizacion de torre." };
+      const delayed = active.find(f => f.estado === "Retrasado");
+      if (delayed) return { level: "Precaucion", badge: "warn", text: `Vigilar separacion: ${delayed.codigo} reporta retraso en ${delayed.ruta}.`, action: "Mantener comunicacion y actualizar ETA." };
+      return { level: "Normal", badge: "ok", text: "Sin conflicto critico detectado. Separacion operacional estable.", action: "Continuar monitoreo automatico." };
+    }
+
+    function conflictSummary() {
+      return towerConflictState().text;
+    }
+    function renderRoleTools() {
+      const panel = document.getElementById("roleToolsPanel");
+      const body = document.getElementById("roleToolsBody");
+      if (!panel || !body || !currentUser) return;
+
+      const key = actorKey();
+      const labels = {
+        operador: ["Herramientas del operador aeroportuario", "Acciones rápidas para trabajo en pista, puerta y plataforma."],
+        supervisor: ["Herramientas del supervisor", "Control de carga operativa, retrasos y escalamiento por turno."],
+        torre: ["Herramientas de torre de control", "Soporte para radar, conflictos, clima y comunicaciones."],
+        gerencia: ["Herramientas Gerencia / CORPAC", "Indicadores ejecutivos, simulación y exportación regulatoria."],
+        administrador: ["Herramientas del administrador", "Vista integral de usuarios, auditoría, reportes y operación." ]
+      };
+      const [title, subtitle] = labels[key] || labels.operador;
+      document.getElementById("roleToolsTitle").textContent = title;
+      document.getElementById("roleToolsSubtitle").textContent = subtitle;
+
+      const activeFlights = flights.filter(f => f.estado !== "Finalizado");
+      const myFlights = activeFlights.slice(0, 3).map(f => `<div class="role-task"><span>${escapeHtml(f.codigo)} · ${escapeHtml(f.puerta)} · ${escapeHtml(f.ruta)}</span><button class="btn small secondary" data-open-comms="${f.id}">Coordinar</button></div>`).join("") || '<p>No hay vuelos activos asignados.</p>';
+      const delayed = activeFlights.filter(f => f.estado === "Retrasado").length;
+      const openIncidents = alerts.filter(a => String(a.estado || "").toLowerCase() === "abierta").length;
+      const doneToday = flights.filter(f => f.estado === "Finalizado").length;
+
+      if (key === "operador") {
+        body.innerHTML = `
+          <div class="role-tools-grid">
+            <div class="role-tool-card">
+              <h4>Checklist de turno con temporizador</h4>
+              <p>Lista rápida para pista y plataforma. Cada acción queda registrada.</p>
+              <div class="role-action-list">
+                ${["Inspección visual de pista", "Confirmar puerta asignada", "Verificar equipo de apoyo"].map((task, i) => `<div class="role-task"><span>${task}</span><button class="btn small primary" data-role-action="op-check" data-role-value="${task}">${i === 0 ? "Iniciar" : "Completar"}</button></div>`).join("")}
+              </div>
+            </div>
+            <div class="role-tool-card">
+              <h4>Reporte por ubicación</h4>
+              <p>Toca el punto operativo. El sistema autocompleta hora, usuario y severidad.</p>
+              <div class="role-map">
+                ${["Pista 01", "Puerta A-04", "Posición B2", "Rodaje Norte", "Plataforma", "Soporte GSE"].map(place => `<button data-role-incident="${place}">${place}</button>`).join("")}
+              </div>
+            </div>
+            <div class="role-tool-card">
+              <h4>Vista solo lo mío</h4>
+              <p>Operaciones inmediatas asignadas al turno del operador.</p>
+              <div class="role-mini-list">${myFlights}</div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (key === "supervisor") {
+        body.innerHTML = `
+          <div class="role-tools-grid">
+            <div class="role-tool-card">
+              <h4>Tablero de carga por operador</h4>
+              <div class="role-kanban"><div><span>Pendiente</span><strong>${openIncidents}</strong></div><div><span>En curso</span><strong>${activeFlights.length}</strong></div><div><span>Resuelto</span><strong>${doneToday}</strong></div></div>
+              <button class="btn small primary" data-role-action="sup-rebalance" data-role-value="Rebalanceo de asignaciones">Rebalancear asignaciones</button>
+            </div>
+            <div class="role-tool-card">
+              <h4>Línea de tiempo del turno</h4>
+              <div class="role-mini-list">
+                <div class="timeline-item"><span>Vuelos activos</span><strong>${activeFlights.length}</strong></div>
+                <div class="timeline-item"><span>Retrasos acumulados</span><strong>${delayed}</strong></div>
+                <div class="timeline-item"><span>Incidencias abiertas</span><strong>${openIncidents}</strong></div>
+              </div>
+            </div>
+            <div class="role-tool-card">
+              <h4>Reglas de escalamiento</h4>
+              <p>Configura aviso automático si una incidencia supera el umbral.</p>
+              <label>Minutos sin atender<input id="escalationMinutes" type="number" min="5" max="90" value="20"></label>
+              <button class="btn small primary" data-role-action="sup-escalation">Guardar regla</button>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (key === "torre") {
+        body.innerHTML = `
+          <div class="role-tools-grid">
+            <div class="role-tool-card">
+              <h4>Detección de conflicto de trayectorias</h4>
+              <p>${escapeHtml(conflictSummary())}</p>
+              <button class="btn small primary" data-role-action="tower-conflict" data-role-value="Revision de conflicto de trayectorias">Registrar revisión</button>
+            </div>
+            <div class="role-tool-card">
+              <h4>Bitácora de frecuencia</h4>
+              <p>Mensajes torre-avión recientes y auditables.</p>
+              <label>Mensaje de torre
+                <textarea id="towerLogMessage" rows="3" placeholder="Ej. AVA165 autorizado a aproximación por pista 01"></textarea>
+              </label>
+              <button class="btn small primary" data-role-action="tower-log">Guardar en bitácora</button>
+              <div class="role-mini-list">${roleToolRecentHtml("torre")}</div>
+            </div>
+            <div class="role-tool-card">
+              <h4>Overlay meteorológico</h4>
+              <div class="weather-overlay"><span>Viento 14 kt</span><span>Visibilidad 8 km</span><span>Pista sugerida 01</span></div>
+              <button class="btn small primary" data-role-action="tower-weather" data-role-value="Overlay meteorologico aplicado">Aplicar recomendación</button>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (key === "gerencia") {
+        body.innerHTML = `
+          <div class="role-tools-grid">
+            <div class="role-tool-card">
+              <h4>Comparativo histórico</h4>
+              <div class="role-mini-list"><div class="timeline-item"><span>Mes actual</span><strong>${flights.length} ops</strong></div><div class="timeline-item"><span>Mes anterior</span><strong>${Math.max(0, flights.length - 4)} ops</strong></div><div class="timeline-item"><span>Tendencia</span><strong>+${Math.min(18, flights.length)}%</strong></div></div>
+            </div>
+            <div class="role-tool-card what-if-control">
+              <h4>Simulador qué pasaría si</h4>
+              <p>Proyecta impacto operativo si suben los retrasos.</p>
+              <input id="whatIfDelay" type="range" min="0" max="50" value="20">
+              <div class="role-export-box">Capacidad estimada: <strong id="whatIfResult">${Math.max(40, 100 - delayed * 8)}%</strong></div>
+            </div>
+            <div class="role-tool-card">
+              <h4>Exportación regulatoria</h4>
+              <p>Prepara resumen para CORPAC/DGAC con fuente automática del sistema.</p>
+              <button class="btn small primary" data-role-action="corp-export" data-role-value="Exportacion regulatoria preparada">Preparar exportación</button>
+            </div>
+          </div>`;
+        return;
+      }
+
+      body.innerHTML = `
+        <div class="role-tools-grid">
+          <div class="role-tool-card"><h4>Auditoría general</h4><p>${roleActions.length} acciones especiales registradas en MySQL.</p><button class="btn small primary" data-role-action="admin-audit" data-role-value="Revision integral de auditoria">Registrar revisión</button></div>
+          <div class="role-tool-card"><h4>Usuarios y permisos</h4><p>${users.length || 5} usuarios principales controlados por rol y área.</p><button class="btn small secondary" data-view-jump="perfil">Ver usuarios</button></div>
+          <div class="role-tool-card"><h4>Resumen operacional</h4><div class="role-mini-list"><div class="timeline-item"><span>Vuelos activos</span><strong>${activeFlights.length}</strong></div><div class="timeline-item"><span>Incidencias</span><strong>${openIncidents}</strong></div><div class="timeline-item"><span>Reportes</span><strong>${generatedReports.length}</strong></div></div></div>
+        </div>`;
+    }
+
+    async function handleRoleToolAction(action, value) {
+      if (!action) return;
+      let detail = value || "Accion operacional registrada";
+      if (action === "sup-escalation") {
+        const minutes = document.getElementById("escalationMinutes")?.value || "20";
+        detail = `Regla de escalamiento configurada a ${minutes} minutos`;
+      }
+      if (action === "corp-export") {
+        const title = "Reporte regulatorio CORPAC/DGAC";
+        await fetch("/api/reportes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tipo: "Exportacion regulatoria", titulo: title, contenido: "Resumen listo para ente regulador con vuelos, incidencias, recursos y bitacora.", fecha_generacion: new Date().toISOString().slice(0, 10) })
+        });
+        detail = "Exportacion regulatoria preparada y reporte generado";
+      }
+      if (action === "tower-log") {
+        const message = document.getElementById("towerLogMessage")?.value.trim();
+        if (!message) return showToast("Escribe un mensaje de torre antes de guardar.");
+        detail = `Bitacora de torre: ${message}`;
+      }
+      await logRoleAction(action.toUpperCase().replaceAll("-", "_"), detail, { vista: "dashboard", clima: action === "tower-weather" ? towerWeatherData() : undefined });
+      await loadData();
+      renderAll();
+      showToast(detail);
+    }
+
+    async function reportRoleIncident(place) {
+      const response = await fetch("/api/incidencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: "Infraestructura", prioridad: "Alta", descripcion: `Incidencia reportada desde ${place} por ${currentUser?.nombre || "operador"}.` })
+      });
+      if (!response.ok) return showToast("No se pudo registrar la incidencia.");
+      await logRoleAction("REPORTE_UBICACION", `Incidencia geolocalizada en ${place}`, { ubicacion: place });
+      await loadData();
+      renderAll();
+      showToast(`Incidencia registrada en ${place}.`);
+    }
+    async function loadData() {
+      const [flightResponse, incidentResponse, resourceResponse, metricResponse, reportResponse, requestResponse, roleActionResponse] = await Promise.all([
+        fetch("/api/vuelos"),
+        fetch("/api/incidencias"),
+        fetch("/api/recursos"),
+        fetch("/api/metricas"),
+        fetch("/api/reportes"),
+        fetch("/api/solicitudes"),
+        fetch("/api/role-tools")
+      ]);
+      if (![flightResponse, incidentResponse, resourceResponse, metricResponse].every(response => response.ok)) {
+        throw new Error("No se pudieron cargar los datos del servidor");
+      }
+      flights = await flightResponse.json();
+      alerts = await incidentResponse.json();
+      resources = await resourceResponse.json();
+      metrics = await metricResponse.json();
+      generatedReports = reportResponse.ok ? await reportResponse.json() : [];
+      roleActions = roleActionResponse.ok ? await roleActionResponse.json() : [];
+      departureQueue = requestResponse.ok ? (await requestResponse.json()).map(item => ({
+        tempId: `DEP-DB-${item.id}`,
+        requestId: item.id,
+        codigo: item.codigo,
+        ruta: item.ruta,
+        hora: item.hora,
+        puerta: item.puerta,
+        estado: "Programado",
+        tipo: item.tipo,
+        motivo: item.motivo,
+        sourceArrival: item.origen_vuelo,
+        dueAt: Number(item.dueAt || Date.now())
+      })) : [];
+    }
+
+    function renderAll() {
+      renderFlights(document.getElementById("globalSearch").value);
+      renderCapacity();
+      renderProgramacion();
+      renderActiveProgramacion();
+      renderTraffic();
+      renderResources();
+      renderReports();
+    }
+
+    function randomBetween(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("dateText").textContent = now.toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+      document.getElementById("timeText").textContent = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " GMT-5";
+    }
+
+    document.querySelectorAll("nav button").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+    document.querySelectorAll("[data-view-jump]").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.viewJump)));
+
+    function executeFlightSearch() {
+      const input = document.getElementById("globalSearch");
+      const term = input.value.trim().toLowerCase();
+      renderFlights(input.value);
+      setView("vuelos");
+      const matches = flights.filter(flight => operationalStatusFor(flight) !== "Finalizado"
+        && [flight.codigo, flight.ruta, flight.hora, flight.puerta, operationalStatusFor(flight), flight.tipo]
+          .join(" ").toLowerCase().includes(term));
+      showToast(term ? `${matches.length} vuelo${matches.length === 1 ? "" : "s"} encontrado${matches.length === 1 ? "" : "s"}.` : "Mostrando todos los vuelos activos.");
+    }
+    document.getElementById("globalSearch").addEventListener("input", event => renderFlights(event.target.value));
+    document.getElementById("globalSearch").addEventListener("keydown", event => {
+      if (event.key === "Enter") executeFlightSearch();
+    });
+    document.getElementById("globalSearchButton").addEventListener("click", executeFlightSearch);
+    document.getElementById("refreshCapacity").addEventListener("click", () => { renderCapacity(); showToast("Capacidad de terminal actualizada."); });
+    document.getElementById("refreshProgram").addEventListener("click", () => { renderActiveProgramacion(); showToast("Programacion activa actualizada."); });
+    document.getElementById("contingencyBtn").addEventListener("click", () => showToast("Plan de contingencia: priorizar pista 01 y reasignar puerta B-02."));
+    document.getElementById("bell").addEventListener("click", () => showToast(alerts.map(item => `${item.codigo}: ${item.descripcion}`).join(" · ") || "No hay incidencias abiertas."));
+    document.getElementById("generateReport").addEventListener("click", createReport);
+    document.getElementById("refreshRoleTools")?.addEventListener("click", async () => { await loadData(); renderRoleTools(); showToast("Herramientas del rol actualizadas."); });
+    document.getElementById("refreshUsers")?.addEventListener("click", async () => {
+      await loadUsers();
+      showToast("Lista de usuarios actualizada.");
+    });
+
+    document.getElementById("simulateIncident").addEventListener("click", async () => {
+      if (!canUse("simulateIncident")) return showToast("Tu perfil no puede simular incidencias.");
+      const response = await fetch("/api/incidencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: "Infraestructura", prioridad: "Alta", descripcion: "Revisión técnica simulada en puerta C-08" })
+      });
+      if (!response.ok) return showToast("No se pudo registrar la incidencia.");
+      await loadData();
+      renderAll();
+      showToast("Incidencia registrada en la base de datos.");
+    });
+
+    document.getElementById("towerSimulatorFrame")?.addEventListener("load", syncTowerSimulator);
+    setInterval(refreshTowerSource, 15000);
+
+    document.addEventListener("change", event => {
+      const toggle = event.target.closest("[data-toggle-user]");
+      if (toggle) setUserEnabled(toggle.dataset.toggleUser, toggle.checked);
+    });
+
+    document.addEventListener("click", async event => {
+      const editUserBtn = event.target.closest("[data-edit-user]");
+      if (editUserBtn) return editUser(editUserBtn.dataset.editUser);
+
+      const roleActionBtn = event.target.closest("[data-role-action]");
+      if (roleActionBtn) return handleRoleToolAction(roleActionBtn.dataset.roleAction, roleActionBtn.dataset.roleValue);
+
+      const roleIncidentBtn = event.target.closest("[data-role-incident]");
+      if (roleIncidentBtn) return reportRoleIncident(roleIncidentBtn.dataset.roleIncident);
+      const editReportBtn = event.target.closest("[data-edit-report]");
+      if (editReportBtn) return editReport(editReportBtn.dataset.editReport);
+
+      const deleteReportBtn = event.target.closest("[data-delete-report]");
+      if (deleteReportBtn) return deleteReport(deleteReportBtn.dataset.deleteReport);
+
+      const openCommsBtn = event.target.closest("[data-open-comms]");
+      if (openCommsBtn) return openFlightComms(Number(openCommsBtn.dataset.openComms));
+
+      const closeCommsBtn = event.target.closest("[data-close-flight-comms]");
+      if (closeCommsBtn || event.target.id === "flightCommsModal") return closeFlightComms();
+
+      const sendCommsBtn = event.target.closest("[data-send-flight-comms]");
+      if (sendCommsBtn) {
+        const flight = flights.find(item => item.id === Number(sendCommsBtn.dataset.sendFlightComms));
+        const message = document.getElementById("towerMessageSelect")?.value || "Comunicación operacional enviada.";
+        closeFlightComms();
+        return showToast(`${flight?.codigo || "Vuelo"}: comunicación enviada. ${message}`);
+      }
+
+      const closeFlightDetailBtn = event.target.closest("[data-close-flight-detail]");
+      if (closeFlightDetailBtn || event.target.id === "flightDetailModal") return closeFlightDetail();
+
+      const flightDetailRow = event.target.closest("[data-flight-detail]");
+      if (flightDetailRow && !event.target.closest("button")) {
+        return showFlightDetail(Number(flightDetailRow.dataset.flightDetail));
+      }
+      const jump = event.target.closest("[data-view-jump]");
+      if (jump) return setView(jump.dataset.viewJump);
+
+      const resourceMarker = event.target.closest("[data-resource-id]");
+      if (resourceMarker) {
+        const resource = resources.find(item => item.id === Number(resourceMarker.dataset.resourceId));
+        if (resource) showToast(`${resource.codigo}: ${resource.estado} - ${resource.detalle}`);
+      }
+
+      const officialDeparture = event.target.closest("[data-official-departure]");
+      if (officialDeparture) {
+        if (!canUse("changeFlight")) return showToast("Tu perfil no puede confirmar salidas oficiales.");
+        return markOfficialDeparture(Number(officialDeparture.dataset.officialDeparture), "Llegada generada por salida oficial");
+      }
+
+      const approveIncoming = event.target.closest("[data-approve-incoming]");
+      if (approveIncoming) return approveIncomingFlight(approveIncoming.dataset.approveIncoming);
+
+      const rejectIncoming = event.target.closest("[data-reject-incoming]");
+      if (rejectIncoming) return rejectIncomingFlight(rejectIncoming.dataset.rejectIncoming);
+
+      const saveResource = event.target.closest("[data-save-resource]");
+      if (saveResource) {
+        if (!canUse("updateResource")) return showToast("Tu perfil no puede actualizar recursos.");
+        const resourceId = Number(saveResource.dataset.saveResource);
+        const select = document.querySelector(`[data-resource-state="${resourceId}"]`);
+        const response = await fetch(`/api/recursos/${resourceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ estado: select.value })
+        });
+        const result = await response.json();
+        if (!response.ok) return showToast(result.error || "No se pudo actualizar el recurso.");
+        await loadData();
+        renderAll();
+        return showToast(`Recurso ${result.codigo} actualizado a ${result.estado}.`);
+      }
+
+      const id = Number(event.target.dataset.toggleStatus);
+      if (!id) return;
+      if (!canUse("changeFlight")) return showToast("Tu perfil no puede cambiar estados de vuelo.");
+      const flight = flights.find(f => f.id === id);
+      const order = ["Programado", "Embarcando", "En hora", "En vuelo", "Retrasado", "Finalizado"];
+      const estado = order[(order.indexOf(flight.estado) + 1) % order.length];
+      const response = await fetch(`/api/vuelos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ estado }) });
+      if (!response.ok) return showToast("No se pudo actualizar el vuelo.");
+      await loadData();
+      renderAll();
+      showToast(`Estado de ${flight.codigo} actualizado a ${estado}.`);
+    });
+
+    const modal = document.getElementById("flightModal");
+
+    function currentFlightTime() {
+      const now = new Date();
+      return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    }
+
+    function generateUniqueFlightCode() {
+      const usedCodes = new Set(flights.map(flight => String(flight.codigo || "").toUpperCase()));
+      let code = "";
+      let attempts = 0;
+      do {
+        const prefix = ["AO", "CP", "LIM", "OPS", "AV"][attempts % 5];
+        const number = Math.floor(1000 + Math.random() * 9000);
+        code = `${prefix}${number}`;
+        attempts += 1;
+      } while (usedCodes.has(code) && attempts < 100);
+      return code;
+    }
+
+    function generateGateCode() {
+      const gates = ["A-04", "B-02", "C-08", "A-09", "C-12", "B-06", "D-03", "P-01"];
+      const used = new Set(flights.map(flight => String(flight.puerta || "").toUpperCase()));
+      return gates.find(gate => !used.has(gate)) || gates[Math.floor(Math.random() * gates.length)];
+    }
+
+    function currentFlightDate() {
+      return new Date().toLocaleDateString("es-PE", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    function prepareFlightForm() {
+      document.getElementById("flightDate").value = currentFlightDate();
+      document.getElementById("flightTime").value = currentFlightTime();
+      document.getElementById("flightCode").value = generateUniqueFlightCode();
+      document.getElementById("flightGate").value = generateGateCode();
+      document.getElementById("flightStatus").value = "Programado";
+    }
+
+    document.getElementById("openFlightModal").addEventListener("click", () => {
+      if (!canUse("createFlight")) return showToast("Tu perfil no puede registrar vuelos.");
+      prepareFlightForm();
+      modal.classList.add("show");
+    });
+    document.getElementById("closeFlightModal").addEventListener("click", () => modal.classList.remove("show"));
+    document.getElementById("swapRoute").addEventListener("click", () => {
+      const origin = document.getElementById("flightOrigin");
+      const destination = document.getElementById("flightDestination");
+      const temp = origin.value;
+      origin.value = destination.value;
+      destination.value = temp;
+    });
+    modal.addEventListener("click", event => { if (event.target === modal) modal.classList.remove("show"); });
+
+    document.getElementById("clearForm").addEventListener("click", () => { document.getElementById("flightForm").reset(); prepareFlightForm(); });
+
+    document.getElementById("flightForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      if (!canUse("createFlight")) return showToast("Tu perfil no puede registrar vuelos.");
+      const response = await fetch("/api/vuelos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          codigo: document.getElementById("flightCode").value.trim().toUpperCase(),
+          ruta: `${document.getElementById("flightOrigin").value.trim()} - ${document.getElementById("flightDestination").value.trim()}`,
+          hora: document.getElementById("flightTime").value.trim(),
+          puerta: document.getElementById("flightGate").value.trim().toUpperCase(),
+          estado: document.getElementById("flightStatus").value,
+          tipo: document.getElementById("flightType").value
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) return showToast(result.error || "No se pudo registrar el vuelo.");
+      event.target.reset();
+      modal.classList.remove("show");
+      await loadData();
+      renderAll();
+      showToast("Vuelo guardado en la base de datos.");
+    });
+
+    document.getElementById("showLogin").addEventListener("click", () => showAuth("login"));
+    document.getElementById("showRegister").addEventListener("click", () => showAuth("register"));
+
+    document.getElementById("loginForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const submitButton = document.getElementById("loginSubmitButton");
+      const securityMessage = document.getElementById("loginSecurityMessage");
+      submitButton.disabled = true;
+      submitButton.textContent = "Validando acceso...";
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dni: document.getElementById("loginDni").value.trim(),
+          password: document.getElementById("loginPassword").value
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 429 && result.retryAfterSeconds) {
+          setLoginLock(result.retryAfterSeconds);
+        } else {
+          submitButton.disabled = false;
+          submitButton.textContent = "Entrar al sistema";
+          securityMessage.classList.add("error");
+          securityMessage.textContent = result.error || "No se pudo iniciar sesión.";
+        }
+        return showToast(result.error || "No se pudo iniciar sesión.");
+      }
+      submitButton.disabled = false;
+      submitButton.textContent = "Entrar al sistema";
+      securityMessage.classList.remove("error");
+      securityMessage.textContent = "Acceso validado de forma segura.";
+      await startSession(result.user);
+      showToast("Sesión iniciada correctamente.");
+    });
+
+    document.getElementById("registerForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const password = document.getElementById("registerPassword").value;
+      const confirmPassword = document.getElementById("registerPasswordConfirm").value;
+      const passwordIssues = passwordPolicyIssues(password);
+      if (passwordIssues.length) return showToast(`La contraseña aún requiere: ${passwordIssues.join(", ")}.`);
+      if (password !== confirmPassword) return showToast("Las contraseñas no coinciden.");
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: document.getElementById("registerName").value.trim(),
+          apellido: document.getElementById("registerLastName").value.trim(),
+          dni: document.getElementById("registerDni").value.trim(),
+          celular: document.getElementById("registerPhone").value.trim(),
+          correo: document.getElementById("registerEmail").value.trim(),
+          rol: document.getElementById("registerRole").value,
+          area: document.getElementById("registerArea").value.trim(),
+          password
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) return showToast(result.error || "No se pudo crear el usuario.");
+      event.target.reset();
+      populateRegisterAreas();
+      renderPasswordPolicy("registerPassword", "registerPasswordPolicy");
+      showAuth("login");
+      showToast("Usuario creado. Ahora inicia sesión.");
+    });
+
+    document.getElementById("profileForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const password = document.getElementById("profilePassword").value;
+      const confirmPassword = document.getElementById("profilePasswordConfirm").value;
+      if (password) {
+        const passwordIssues = passwordPolicyIssues(password);
+        if (passwordIssues.length) return showToast(`La nueva contraseña requiere: ${passwordIssues.join(", ")}.`);
+        if (password !== confirmPassword) return showToast("La confirmación de la nueva contraseña no coincide.");
+      } else if (confirmPassword) {
+        return showToast("Ingresa la nueva contraseña antes de confirmarla.");
+      }
+      const response = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: document.getElementById("profileName").value.trim(),
+          apellido: document.getElementById("profileLastName").value.trim(),
+          celular: document.getElementById("profilePhone").value.trim(),
+          correo: document.getElementById("profileEmail").value.trim(),
+          area: document.getElementById("profileArea").value.trim(),
+          password
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) return showToast(result.error || "No se pudo actualizar el perfil.");
+      currentUser = result.user;
+      updateUserUI();
+      applyPermissions();
+      renderPasswordPolicy("profilePassword", "profilePasswordPolicy");
+      showToast("Perfil actualizado en MySQL.");
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await fetch("/api/auth/logout", { method: "POST" });
+      currentUser = null;
+      showAuth("login");
+      showToast("Sesión cerrada.");
+    });
+
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (!response.ok) return showAuth("login");
+        const result = await response.json();
+        await startSession(result.user);
+      } catch (error) {
+        showAuth("login");
+        showToast("Inicia sesión para conectar con el servidor.");
+      }
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+    checkSession();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
