@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroControl Ops - Historial Completo de la Sesión</title>
+  <style>
+    :root {
+      --primary: #570026;
+      --secondary: #9d174d;
+      --navy: #0b131f;
+      --accent: #0284c7;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background-color: var(--bg);
+      margin: 0;
+      padding: 0;
+    }
+    .header {
+      background: linear-gradient(135deg, var(--primary), var(--navy));
+      color: #fff;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 { margin: 0 0 10px; font-size: 28px; }
+    .header p { margin: 0; opacity: 0.85; font-size: 15px; }
+    .container {
+      max-width: 1000px;
+      margin: -25px auto 50px;
+      padding: 0 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+      border: 1px solid var(--border);
+    }
+    h2 {
+      color: var(--primary);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 8px;
+      margin-top: 0;
+      font-size: 22px;
+    }
+    h3 { color: var(--secondary); margin-top: 20px; font-size: 18px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .badge-bad { background: #fee2e2; color: #991b1b; }
+    blockquote {
+      background: #fdf2f8;
+      border-left: 4px solid var(--secondary);
+      margin: 16px 0;
+      padding: 12px 18px;
+      font-style: italic;
+      color: #831843;
+      border-radius: 0 8px 8px 0;
+    }
+    code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      color: #0f172a;
+    }
+    .file-list {
+      list-style: none;
+      padding: 0;
+    }
+    .file-list li {
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>✈️ AeroControl Ops — Historial Completo de la Sesión</h1>
+    <p>Evaluación ISO/IEC 25010, Segunda Entrega, Presentación PPTX y Guion Didáctico</p>
+  </div>
+
+  <div class="container">
+
+    <div class="card">
+      <h2>📂 Entregables Listos en tu Computadora</h2>
+      <p>Todos los archivos generados están guardados tanto en tu carpeta de <strong>Descargas</strong> como en la raíz de tu proyecto:</p>
+      <ul class="file-list">
+        <li>📊 <strong>AeroControl_Ops_Diagnostico_ISO25010.pptx</strong> — Presentación PowerPoint de 8 diapositivas con notas completas del orador.</li>
+        <li>📋 <strong>DIAGNOSTICO_3_CARACTERISTICAS.md</strong> — Documento oficial de la 2da Entrega (Seguridad, Fiabilidad y Safety con métricas concretas).</li>
+        <li>🎙️ <strong>GUIA_DIDACTICA_EXPOSICION.md</strong> — Guion didáctico paso a paso y respuestas de oro para la sustentación.</li>
+        <li>📄 <strong>EVALUACION_ISO25010_AEROCONTROL.md</strong> — Informe exhaustivo de las 9 características y 38 subcaracterísticas ISO 25010.</li>
+        <li>🎯 <strong>PROMPT_PRESENTACION_PPTX_CLAUDE.md</strong> — Prompt maestro utilizado para Claude.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>🔒 1. Justificación de las 3 Características Críticas</h2>
+      <p>Para un sistema de misión crítica como <strong>AeroControl Ops</strong>, donde se coordinan vuelos y aproximación, los errores de software implican riesgos operacionales directos:</p>
+      <ul>
+        <li><strong>Seguridad (Security):</strong> Porque nadie ajeno a la torre de control debe poder alterar un plan de vuelo, modificar puertas o encubrir incidentes.</li>
+        <li><strong>Fiabilidad (Reliability):</strong> Porque el aeropuerto opera 24/7 ininterrumpidamente y el sistema no puede perder sesiones ni estado ante reinicios o microcortes.</li>
+        <li><strong>Protección (Safety):</strong> Porque el software debe prevenir activamente catástrofes físicas (evitar aterrizajes en pistas clausuradas o colisiones de aviones en puertas).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>📊 2. Matriz de Diagnóstico y Métricas Concretas</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Característica</th>
+            <th>Subcaracterística</th>
+            <th>Métrica Concreta</th>
+            <th>Estado</th>
+            <th>Evidencia en Código</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>Confidencialidad</td>
+            <td>% de respuestas API sin password_hash + Cookie HttpOnly/SameSite</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td><code>publicUser</code> en <code>server-mysql.mjs:L93</code>; Cookie en <code>L83</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>Integridad</td>
+            <td>% de consultas SQL parametrizadas con Prepared Statements (?)</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td>100% parametrizadas en login, vuelos, reportes y solicitudes.</td>
+          </tr>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>No-repudio</td>
+            <td>% de mutaciones en bitácora con DNI y timestamp + IP/User-Agent</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>100% en <code>bitacora</code>; falta registrar IP y User-Agent.</td>
+          </tr>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>Responsabilidad</td>
+            <td>% de tablas con FK de autoría (creado_por / modificado_por)</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td><code>reportes</code> tiene FK a <code>usuarios</code>; <code>vuelos</code> depende de texto en bitácora.</td>
+          </tr>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>Autenticidad</td>
+            <td>Robustez de hashing (bcrypt vs hash simple) + % rutas con sesión</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>100% rutas protegidas; se usa SHA-256 plano sin salt en <code>L57</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>SEGURIDAD</strong></td>
+            <td>Resistencia</td>
+            <td>Rate Limiting en login + % cobertura anti-XSS</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>100% anti-XSS con <code>escapeHtml</code>; sin Rate Limiting en login.</td>
+          </tr>
+          <tr>
+            <td><strong>FIABILIDAD</strong></td>
+            <td>Ausencia de fallos</td>
+            <td>% de rutas con try/catch global y respuesta HTTP 500 JSON</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td>100% envueltas en <code>server-mysql.mjs:L417</code>; captura <code>ER_DUP_ENTRY</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>FIABILIDAD</strong></td>
+            <td>Disponibilidad</td>
+            <td>Uptime del servicio + almacenamiento persistente y modo offline</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>Persistencia MySQL/SQLite; falta modo offline ante fallo en carga.</td>
+          </tr>
+          <tr>
+            <td><strong>FIABILIDAD</strong></td>
+            <td>Tolerancia a fallos</td>
+            <td>% módulos con fallback de contingencia + Reintentos automáticos</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>Fallback de 6 recursos estáticos en <code>renderResources</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>FIABILIDAD</strong></td>
+            <td>Recuperabilidad</td>
+            <td>Tiempo de reconexión a BD (MTTR) + % sesiones recuperadas</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>Reconexión con <code>waitForConnections: true</code>; sesiones en RAM se pierden.</td>
+          </tr>
+          <tr>
+            <td><strong>PROTECCIÓN</strong></td>
+            <td>Restricción operativa</td>
+            <td>% acciones bloqueadas en UI y validadas contra estado real en backend</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>UI segrega roles; el backend no valida si la pista asignada está "Cerrada".</td>
+          </tr>
+          <tr>
+            <td><strong>PROTECCIÓN</strong></td>
+            <td>Identificación de riesgos</td>
+            <td>Tiempo de detección y alerta ante conflictos de puerta y clima</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td>Detección automática de colisión de puerta (<code>towerConflictState</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>PROTECCIÓN</strong></td>
+            <td>Protección ante fallos</td>
+            <td>% de operaciones compuestas en transacciones atómicas ACID</td>
+            <td><span class="badge badge-warn">Parcial</span></td>
+            <td>Unicidad <code>codigo UNIQUE</code>; falta atomicidad transaccional.</td>
+          </tr>
+          <tr>
+            <td><strong>PROTECCIÓN</strong></td>
+            <td>Advertencia de peligro</td>
+            <td>Latencia en alertas visuales + semáforos cromáticos normados</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td>Semáforos normados (ok, warn, bad), modo Emergencia y toasts.</td>
+          </tr>
+          <tr>
+            <td><strong>PROTECCIÓN</strong></td>
+            <td>Integración segura</td>
+            <td>% de transiciones del ciclo operacional sincronizadas sin pérdida</td>
+            <td><span class="badge badge-ok">Cumple</span></td>
+            <td>Flujo continuo: Llegada -> Solicitud -> Autorización -> Radar -> Bitácora.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>🚀 3. Top 5 Mejoras Prioritarias para Pase a Producción</h2>
+      <ol>
+        <li><strong>Seguridad de Contraseñas:</strong> Reemplazar SHA-256 por <code>bcrypt</code> (factor 12) y añadir Rate Limiting (máximo 5 intentos en 15 min) en el login.</li>
+        <li><strong>Pruebas Automatizadas:</strong> Implementar una suite de pruebas unitarias automáticas con <code>node:test</code> o <code>vitest</code> para las validaciones de vuelos y login.</li>
+        <li><strong>Persistencia de Sesiones:</strong> Migrar las sesiones en memoria (<code>new Map()</code>) a una tabla en MySQL o Redis para soportar escalabilidad horizontal.</li>
+        <li><strong>Validación de Safety en Backend:</strong> Bloquear en <code>POST /api/vuelos</code> cualquier autorización si la pista o puerta asignada se encuentra en estado "Cerrada" o "Mantenimiento".</li>
+        <li><strong>Modularización de Código:</strong> Desacoplar el archivo monolítico <code>index.html</code> (4,392 líneas) en <code>styles.css</code>, <code>app.js</code> y módulos independientes.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>🎙️ 4. Guion Rápido y Respuestas Clave para la Defensa</h2>
+      <blockquote>
+        "Evaluamos el sistema bajo ISO/IEC 25010:2023. El software destaca con cumplimiento total en Adecuación Funcional, Usabilidad, Detección de Conflictos en Radar e Inmunidad a Inyección SQL con Prepared Statements. Como oportunidad de mejora para una fase de producción, identificamos la necesidad de incorporar pruebas automatizadas (Testabilidad) y migrar el hash de contraseñas a bcrypt con salting."
+      </blockquote>
+    </div>
+
+  </div>
+
+</body>
+</html>
