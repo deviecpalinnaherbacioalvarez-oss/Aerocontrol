@@ -30,6 +30,20 @@
       background: var(--bg);
     }
 
+    /* Accesibilidad WCAG 2.1 (Ley N° 29973 - Art. 23) - Foco visible universal */
+    :focus-visible {
+      outline: 3px solid #0284c7 !important;
+      outline-offset: 2px !important;
+    }
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #0284c7 !important;
+      outline-offset: 2px !important;
+      box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.3) !important;
+    }
+
     .app {
       min-height: 100vh;
       display: grid;
@@ -1699,19 +1713,26 @@
     }
 
     .auth-tabs button {
-      border: 0;
+      border: 2px solid transparent;
       border-radius: 8px;
       padding: 12px;
       cursor: pointer;
       font: inherit;
       font-weight: 900;
-      color: #475569;
+      color: #1e293b;
       background: #f1f5f9;
+      transition: all 0.2s ease;
+    }
+
+    .auth-tabs button:hover {
+      background: #e2e8f0;
+      color: #0f172a;
     }
 
     .auth-tabs button.active {
       background: var(--primary);
-      color: #fff;
+      color: #ffffff;
+      border-color: #3b071f;
     }
 
     .auth-form {
@@ -1722,13 +1743,37 @@
     .auth-form h3 {
       margin: 0;
       font-size: 22px;
+      color: #0f172a;
     }
 
     .auth-form .hint {
       margin: -6px 0 4px;
-      color: var(--muted);
-      font-size: 13px;
+      color: #1e293b;
+      font-size: 13.5px;
       line-height: 1.45;
+      font-weight: 600;
+    }
+
+    .auth-form label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .auth-form input,
+    .auth-form select {
+      border: 1.5px solid #64748b;
+      border-radius: 8px;
+      padding: 11px 13px;
+      font: inherit;
+      color: #0f172a;
+      background: #ffffff;
+    }
+
+    .auth-form input::placeholder {
+      color: #475569;
     }
 
     .auth-form .btn {
@@ -2135,7 +2180,12 @@
       color: var(--primary);
     }
 
-    .auth-chips span,
+    .auth-chips span {
+      background: #e0f2fe;
+      color: #0369a1;
+      border-color: #7dd3fc;
+    }
+
     .flight-pill.active {
       background: #eef1ff;
       color: var(--accent);
@@ -2143,8 +2193,9 @@
     }
 
     .auth-tabs button.active {
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
-      color: #fff;
+      background: linear-gradient(90deg, var(--primary), #b9103f);
+      color: #ffffff;
+      border-color: #3b071f;
     }
 
     .flight-booking-modal {
@@ -2264,13 +2315,13 @@
   </style>
 </head>
 <body>
-  <section class="auth-screen" id="authScreen">
+  <section class="auth-screen" id="authScreen" aria-label="Acceso al sistema aeroportuario">
     <div class="auth-wrap">
       <div class="auth-hero">
-        <div class="auth-mark"><img src="aerocontrol_ops_logo.png" alt="AeroControl Ops"></div>
+        <div class="auth-mark"><img src="aerocontrol_ops_logo.png" alt="Logotipo oficial de AeroControl Ops" width="118" height="118"></div>
         <h2>Control aeroportuario con acceso seguro</h2>
         <p>Ingreso de operadores, supervisores y administradores para monitorear vuelos, incidencias, recursos y reportes desde una base de datos MySQL.</p>
-        <div class="auth-chips">
+        <div class="auth-chips" aria-label="Componentes del sistema">
           <span>Frontend HTML</span>
           <span>Backend Node</span>
           <span>MySQL Workbench</span>
@@ -2279,45 +2330,69 @@
       </div>
 
       <div class="auth-card">
-        <div class="auth-tabs">
-          <button class="active" id="showLogin" type="button">Iniciar sesión</button>
-          <button id="showRegister" type="button">Registrarse</button>
+        <div class="auth-tabs" role="tablist" aria-label="Selección de formulario de acceso">
+          <button class="active" id="showLogin" type="button" role="tab" aria-selected="true" aria-controls="loginForm" tabindex="0">Iniciar sesión</button>
+          <button id="showRegister" type="button" role="tab" aria-selected="false" aria-controls="registerForm" tabindex="-1">Registrarse</button>
         </div>
 
-        <form class="auth-form" id="loginForm">
+        <form class="auth-form" id="loginForm" role="tabpanel" aria-labelledby="showLogin">
           <h3>Bienvenido</h3>
-          <label>DNI<input id="loginDni" inputmode="numeric" maxlength="8" autocomplete="username" required placeholder="12345678"></label>
-          <label>Contraseña
+          <label for="loginDni">DNI
+            <input id="loginDni" name="dni" inputmode="numeric" maxlength="8" pattern="[0-9]{8}" required placeholder="12345678" autocomplete="username" aria-required="true">
+          </label>
+          <label for="loginPassword">Contraseña
             <span class="password-control">
-              <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña">
+              <input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Ingresa tu contraseña" aria-required="true" aria-describedby="loginSecurityMessage">
               <button class="password-visibility" id="toggleLoginPassword" type="button" aria-label="Mostrar contraseña">Mostrar</button>
             </span>
           </label>
           <div class="security-note" id="loginSecurityMessage" aria-live="polite">Máximo 5 intentos. Al alcanzar el límite, el acceso se bloquea durante 15 minutos.</div>
-          <button class="btn primary" id="loginSubmitButton">Entrar al sistema</button>
+          <button class="btn primary" type="submit" id="loginSubmitButton">Entrar al sistema</button>
         </form>
 
-        <form class="auth-form hidden" id="registerForm">
+        <form class="auth-form hidden" id="registerForm" role="tabpanel" aria-labelledby="showRegister">
           <h3>Crear usuario operativo</h3>
-          <p class="hint">Registra personal autorizado para operar el dashboard.</p>
+          <p class="hint" id="registerGeneralHint">Registra personal autorizado para operar el dashboard.</p>
           <div class="form">
-            <label>Nombre<input id="registerName" required placeholder="Nombre"></label>
-            <label>Apellido<input id="registerLastName" required placeholder="Apellido"></label>
-            <label>DNI<input id="registerDni" inputmode="numeric" maxlength="8" required placeholder="8 dígitos"></label>
-            <label>Celular<input id="registerPhone" inputmode="numeric" maxlength="9" required placeholder="9 dígitos"></label>
-            <label class="wide">Correo<input id="registerEmail" type="email" required placeholder="usuario@correo.com"></label>
-            <label>Rol<select id="registerRole"><option>Operador</option><option>Supervisor</option><option>Administrador</option></select></label>
-            <label>Área<select id="registerArea" required></select></label>
-            <label class="wide">Contraseña
+            <label for="registerName">Nombre
+              <input id="registerName" name="name" required placeholder="Nombre" autocomplete="given-name" aria-required="true">
+            </label>
+            <label for="registerLastName">Apellido
+              <input id="registerLastName" name="lastName" required placeholder="Apellido" autocomplete="family-name" aria-required="true">
+            </label>
+            <label for="registerDni">DNI
+              <input id="registerDni" name="dni" inputmode="numeric" maxlength="8" pattern="[0-9]{8}" required placeholder="8 dígitos" autocomplete="off" aria-required="true" aria-describedby="dniRegisterHint">
+              <span id="dniRegisterHint" style="font-size:11.5px;color:#1e293b;font-weight:600">8 dígitos numéricos sin letras.</span>
+            </label>
+            <label for="registerPhone">Celular
+              <input id="registerPhone" name="phone" inputmode="numeric" maxlength="9" pattern="9[0-9]{8}" required placeholder="9 dígitos" autocomplete="tel" aria-required="true" aria-describedby="phoneRegisterHint">
+              <span id="phoneRegisterHint" style="font-size:11.5px;color:#1e293b;font-weight:600">9 dígitos (inicia con 9).</span>
+            </label>
+            <label for="registerEmail" class="wide">Correo
+              <input id="registerEmail" name="email" type="email" required placeholder="usuario@correo.com" autocomplete="email" aria-required="true">
+            </label>
+            <label for="registerRole">Rol
+              <select id="registerRole" name="role" required aria-required="true">
+                <option value="Operador">Operador</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Administrador">Administrador</option>
+              </select>
+            </label>
+            <label for="registerArea">Área
+              <select id="registerArea" name="area" required aria-required="true"></select>
+            </label>
+            <label for="registerPassword" class="wide">Contraseña
               <span class="password-control">
-                <input id="registerPassword" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Crea una contraseña segura">
+                <input id="registerPassword" name="password" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Crea una contraseña segura" aria-required="true" aria-describedby="registerPasswordPolicy">
                 <button class="password-visibility" id="toggleRegisterPassword" type="button" aria-label="Mostrar contraseña">Mostrar</button>
               </span>
             </label>
-            <label class="wide">Confirmar contraseña<input id="registerPasswordConfirm" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Repite la contraseña"></label>
+            <label for="registerPasswordConfirm" class="wide">Confirmar contraseña
+              <input id="registerPasswordConfirm" name="passwordConfirm" type="password" minlength="10" maxlength="72" autocomplete="new-password" required placeholder="Repite la contraseña" aria-required="true">
+            </label>
             <ul class="password-policy wide" id="registerPasswordPolicy" aria-live="polite"></ul>
           </div>
-          <button class="btn primary">Crear cuenta</button>
+          <button class="btn primary" type="submit" id="registerSubmitBtn">Crear cuenta</button>
         </form>
       </div>
     </div>
@@ -2639,7 +2714,7 @@
   <div class="flight-detail-backdrop" id="flightDetailModal">
     <div class="flight-detail-card" id="flightDetailCard" role="dialog" aria-modal="true" aria-label="Detalle del vuelo"></div>
   </div>
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     const views = {
@@ -2707,9 +2782,15 @@
 
     const toast = document.getElementById("toast");
 
-    function showToast(message) {
-      toast.textContent = message;
-      toast.classList.add("show");
+    function showToast(message, isError = false) {
+      const hasError = isError || /error|no se pudo|incorrect|falló|invalido/i.test(message);
+      toast.setAttribute("role", hasError ? "alert" : "status");
+      toast.setAttribute("aria-live", hasError ? "assertive" : "polite");
+      toast.textContent = "";
+      requestAnimationFrame(() => {
+        toast.textContent = message;
+        toast.classList.add("show");
+      });
       setTimeout(() => toast.classList.remove("show"), 2600);
     }
 
@@ -2824,8 +2905,17 @@
       const isLogin = mode === "login";
       document.getElementById("loginForm").classList.toggle("hidden", !isLogin);
       document.getElementById("registerForm").classList.toggle("hidden", isLogin);
-      document.getElementById("showLogin").classList.toggle("active", isLogin);
-      document.getElementById("showRegister").classList.toggle("active", !isLogin);
+
+      const showLogin = document.getElementById("showLogin");
+      const showRegister = document.getElementById("showRegister");
+      showLogin.classList.toggle("active", isLogin);
+      showRegister.classList.toggle("active", !isLogin);
+      showLogin.setAttribute("aria-selected", isLogin ? "true" : "false");
+      showRegister.setAttribute("aria-selected", !isLogin ? "true" : "false");
+
+      // Roving tabindex para accesibilidad WAI-ARIA tabs (WCAG 2.4.3):
+      showLogin.setAttribute("tabindex", isLogin ? "0" : "-1");
+      showRegister.setAttribute("tabindex", isLogin ? "-1" : "0");
     }
 
     function showApp() {
@@ -4558,8 +4648,25 @@
       showToast("Vuelo guardado en la base de datos.");
     });
 
-    document.getElementById("showLogin").addEventListener("click", () => showAuth("login"));
-    document.getElementById("showRegister").addEventListener("click", () => showAuth("register"));
+    const showLoginBtn = document.getElementById("showLogin");
+    const showRegisterBtn = document.getElementById("showRegister");
+    showLoginBtn.addEventListener("click", () => showAuth("login"));
+    showRegisterBtn.addEventListener("click", () => showAuth("register"));
+
+    [showLoginBtn, showRegisterBtn].forEach(tab => {
+      tab.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          e.preventDefault();
+          if (document.activeElement === showLoginBtn) {
+            showRegisterBtn.focus();
+            showAuth("register");
+          } else {
+            showLoginBtn.focus();
+            showAuth("login");
+          }
+        }
+      });
+    });
 
     document.getElementById("loginForm").addEventListener("submit", async event => {
       event.preventDefault();

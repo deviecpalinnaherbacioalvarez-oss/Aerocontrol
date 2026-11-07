@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "start:mysql": "node server-mysql.mjs"
+    "start:mysql": "node server-mysql.mjs",
+    "test": "node scripts/unit_tests.mjs",
+    "test:radar": "node --test tests/surface-engine.test.mjs",
+    "test:functional": "node scripts/verify_user_stories.mjs"
   },
   "dependencies": {
     "mysql2": "^3.11.5"
