@@ -184,6 +184,27 @@ CREATE TABLE IF NOT EXISTS acciones_rol (
     ON DELETE SET NULL
 );
 
+-- Persistencia segura de sesiones (token hash SHA-256) y bloqueo por intentos fallidos.
+CREATE TABLE IF NOT EXISTS sesiones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  token_hash VARCHAR(64) NOT NULL UNIQUE,
+  usuario_id INT NOT NULL,
+  expira_en BIGINT NOT NULL,
+  creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sesiones_usuarios
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS intentos_login (
+  clave VARCHAR(120) PRIMARY KEY,
+  intentos INT NOT NULL DEFAULT 0,
+  primer_intento BIGINT NOT NULL,
+  bloqueado_hasta BIGINT NOT NULL DEFAULT 0,
+  actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Consultas de verificacion para exposicion.
 SELECT ar.actor, ar.tipo, ar.detalle, ar.creado_en, u.dni, u.nombre, u.area
 FROM acciones_rol ar

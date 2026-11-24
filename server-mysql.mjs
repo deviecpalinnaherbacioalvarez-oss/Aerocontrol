@@ -1,43 +1,34 @@
 ﻿import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
-import { extname, join, normalize } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import mysql from "mysql2/promise";
+import {
+  ALLOWED_ROLES,
+  FLIGHT_STATES,
+  INCIDENT_PRIORITIES,
+  LOGIN_LOCK_MS,
+  LOGIN_MAX_ATTEMPTS,
+  LOGIN_WINDOW_MS,
+  SESSION_TTL_MS,
+  buildSessionCookie,
+  canManageUsers,
+  generateSessionToken,
+  hasAnyPermission,
+  hashPassword,
+  hashSessionToken,
+  isAreaAllowedForProfileUpdate,
+  parseCookies,
+  passwordPolicyError,
+  publicUser,
+  resolveActor,
+  resolvePublicRegistrationArea,
+  validateUser,
+  verifyPassword
+} from "./lib/access-control.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const publicDir = join(root, "public");
-const sessions = new Map();
-const loginAttempts = new Map();
-
-const LOGIN_MAX_ATTEMPTS = 5;
-const LOGIN_WINDOW_MS = 10 * 60 * 1000;
-const LOGIN_LOCK_MS = 15 * 60 * 1000;
-
-const dbConfig = {
-  host: process.env.DB_HOST || "127.0.0.1",
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "aerocontrol_ops",
-  waitForConnections: true,
-  connectionLimit: 10
-};
-
-const setupPool = await mysql.createPool({
-  ...dbConfig,
-  database: undefined
-});
-
-await setupPool.query(`
-  CREATE DATABASE IF NOT EXISTS ${dbConfig.database}
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci
-`);
-await setupPool.end();
-
-const pool = await mysql.createPool(dbConfig);
+const defaultPublicDir = join(root, "public");
 
 const jsonHeaders = {
   "Content-Type": "application/json; charset=utf-8",
@@ -54,138 +45,34 @@ const mime = {
   ".svg": "image/svg+xml"
 };
 
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
 function sendJson(res, status, body) {
   res.writeHead(status, jsonHeaders);
   res.end(JSON.stringify(body));
-}
-
-function legacyHashPassword(value) {
-  return createHash("sha256").update(String(value)).digest("hex");
-}
-
-function hashPassword(value) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(String(value), salt, 32).toString("hex");
-  return `scrypt$${salt}$${hash}`;
-}
-
-function verifyPassword(value, storedHash) {
-  const stored = String(storedHash || "");
-  if (stored.startsWith("scrypt$")) {
-    const [, salt, expectedHex] = stored.split("$");
-    if (!salt || !expectedHex) return false;
-    const actual = scryptSync(String(value), salt, 32);
-    const expected = Buffer.from(expectedHex, "hex");
-    return actual.length === expected.length && timingSafeEqual(actual, expected);
-  }
-
-  const actual = Buffer.from(legacyHashPassword(value), "hex");
-  const expected = Buffer.from(stored, "hex");
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
-
-function passwordPolicyError(value) {
-  const password = String(value || "");
-  const missing = [];
-  if (password.length < 10) missing.push("10 caracteres");
-  if (password.length > 72) missing.push("máximo 72 caracteres");
-  if (!/[a-z]/.test(password)) missing.push("una minúscula");
-  if (!/[A-Z]/.test(password)) missing.push("una mayúscula");
-  if (!/\d/.test(password)) missing.push("un número");
-  if (!/[^A-Za-z0-9\s]/.test(password)) missing.push("un símbolo");
-  if (/\s/.test(password)) missing.push("sin espacios");
-  return missing.length ? `La contraseña requiere: ${missing.join(", ")}.` : null;
-}
-
-function loginAttemptKey(req, dni) {
-  return `${req.socket.remoteAddress || "local"}:${String(dni || "").trim()}`;
-}
-
-function getLoginAttemptState(key) {
-  const now = Date.now();
-  const state = loginAttempts.get(key);
-  if (!state) return { count: 0, firstAttemptAt: now, blockedUntil: 0 };
-  if (state.blockedUntil > now) return state;
-  if (now - state.firstAttemptAt > LOGIN_WINDOW_MS) {
-    loginAttempts.delete(key);
-    return { count: 0, firstAttemptAt: now, blockedUntil: 0 };
-  }
-  return state;
-}
-
-function recordLoginFailure(key) {
-  const now = Date.now();
-  const state = getLoginAttemptState(key);
-  state.count += 1;
-  if (state.count >= LOGIN_MAX_ATTEMPTS) state.blockedUntil = now + LOGIN_LOCK_MS;
-  loginAttempts.set(key, state);
-  return state;
-}
-
-function revokeUserSessions(userId) {
-  for (const [token, user] of sessions.entries()) {
-    if (Number(user?.id) === Number(userId)) sessions.delete(token);
-  }
-}
-
-function parseCookies(req) {
-  return Object.fromEntries(
-    (req.headers.cookie || "")
-      .split(";")
-      .filter(Boolean)
-      .map(cookie => {
-        const [key, ...value] = cookie.trim().split("=");
-        return [decodeURIComponent(key), decodeURIComponent(value.join("="))];
-      })
-  );
-}
-
-function sessionUser(req) {
-  const token = parseCookies(req).aerocontrol_session;
-  return token ? sessions.get(token) : null;
-}
-
-function setSession(res, user) {
-  const token = randomUUID();
-  sessions.set(token, user);
-  res.setHeader(
-    "Set-Cookie",
-    `aerocontrol_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=7200`
-  );
-}
-
-function clearSession(req, res) {
-  const token = parseCookies(req).aerocontrol_session;
-  if (token) sessions.delete(token);
-  res.setHeader("Set-Cookie", "aerocontrol_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
-}
-
-function publicUser(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    nombre: row.nombre,
-    apellido: row.apellido,
-    dni: row.dni,
-    celular: row.celular,
-    correo: row.correo,
-    rol: row.rol,
-    area: row.area,
-    habilitado: Boolean(row.habilitado)
-  };
 }
 
 async function readJson(req) {
   let raw = "";
   for await (const chunk of req) {
     raw += chunk;
-    if (raw.length > 1_000_000) throw new Error("Solicitud demasiado grande");
+    if (raw.length > 1_000_000) throw new HttpError(413, "Solicitud demasiado grande");
   }
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new HttpError(400, "Formato JSON inválido");
+  }
 }
 
 function normalizeFlightType(tipo) {
-  if (tipo === "TrÃ¡nsito") return "Transito";
+  if (tipo === "Tránsito") return "Transito";
   return tipo;
 }
 
@@ -193,46 +80,27 @@ function validateFlight(data) {
   const required = ["codigo", "ruta", "hora", "puerta", "estado", "tipo"];
   const missing = required.filter(key => !String(data[key] ?? "").trim());
   if (missing.length) return `Faltan campos: ${missing.join(", ")}`;
-  if (!/^[A-Z0-9-]{3,12}$/i.test(data.codigo)) return "CÃ³digo de vuelo invÃ¡lido";
+  if (!/^[A-Z0-9-]{3,12}$/i.test(data.codigo)) return "Código de vuelo inválido";
+  if (!FLIGHT_STATES.includes(String(data.estado).trim())) return "Estado de vuelo inválido";
   return null;
 }
 
-function validateUser(data) {
-  const required = ["nombre", "apellido", "dni", "celular", "correo", "password"];
-  const missing = required.filter(key => !String(data[key] ?? "").trim());
-  if (missing.length) return `Faltan campos: ${missing.join(", ")}`;
-  if (!/^\d{8}$/.test(String(data.dni))) return "El DNI debe tener 8 dÃ­gitos";
-  if (!/^9\d{8}$/.test(String(data.celular))) return "El celular debe tener 9 dÃ­gitos y empezar con 9";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.correo))) return "Correo invÃ¡lido";
-  const passwordError = passwordPolicyError(data.password);
-  if (passwordError) return passwordError;
-  return null;
-}
-
-function canManageUsers(user) {
-  const area = String(user?.area || "").toLowerCase();
-  const role = String(user?.rol || "").toLowerCase();
-  return (
-    role.includes("administrador") ||
-    role.includes("supervisor") ||
-    area.includes("gerencia") ||
-    area.includes("corpac") ||
-    area.includes("torre")
-  );
-}
-
-async function columnExists(table, column) {
+async function columnExists(pool, table, column) {
+  if (!["reportes", "usuarios"].includes(table)) {
+    throw new Error(`Tabla no permitida para inspección: ${table}`);
+  }
   const [rows] = await pool.query(`SHOW COLUMNS FROM ${table} LIKE ?`, [column]);
   return rows.length > 0;
 }
 
-async function ensureColumn(table, column, definition) {
-  if (!(await columnExists(table, column))) {
+async function ensureColumn(pool, table, column, definition) {
+  if (!(await columnExists(pool, table, column))) {
     await pool.query(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   }
 }
 
-async function ensureDatabase() {
+/** Creates required schema tables (including persistent sessions & login attempts) and seeds demo data. */
+export async function ensureDatabase(pool) {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS vuelos (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -298,7 +166,31 @@ async function ensureDatabase() {
     )
   `);
 
-  await ensureColumn("usuarios", "habilitado", "habilitado TINYINT(1) NOT NULL DEFAULT 1");
+  await ensureColumn(pool, "usuarios", "habilitado", "habilitado TINYINT(1) NOT NULL DEFAULT 1");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sesiones (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      token_hash VARCHAR(64) NOT NULL UNIQUE,
+      usuario_id INT NOT NULL,
+      expira_en BIGINT NOT NULL,
+      creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_sesiones_usuarios
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS intentos_login (
+      clave VARCHAR(120) PRIMARY KEY,
+      intentos INT NOT NULL DEFAULT 0,
+      primer_intento BIGINT NOT NULL,
+      bloqueado_hasta BIGINT NOT NULL DEFAULT 0,
+      actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS reportes (
@@ -319,20 +211,20 @@ async function ensureDatabase() {
     )
   `);
 
-  await ensureColumn("reportes", "tipo", "tipo VARCHAR(80) NOT NULL DEFAULT 'Operacional'");
-  await ensureColumn("reportes", "titulo", "titulo VARCHAR(160) NOT NULL DEFAULT 'Reporte operacional'");
-  await ensureColumn("reportes", "fuente", "fuente VARCHAR(180) NOT NULL DEFAULT 'vuelos, recursos, incidencias y bitacora'");
-  await ensureColumn("reportes", "fecha_generacion", "fecha_generacion DATE NULL");
-  await ensureColumn("reportes", "eliminado", "eliminado TINYINT(1) NOT NULL DEFAULT 0");
-  await ensureColumn("reportes", "creado_por", "creado_por INT NULL");
-  await ensureColumn("reportes", "creado_en", "creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
-  await ensureColumn("reportes", "actualizado_en", "actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+  await ensureColumn(pool, "reportes", "tipo", "tipo VARCHAR(80) NOT NULL DEFAULT 'Operacional'");
+  await ensureColumn(pool, "reportes", "titulo", "titulo VARCHAR(160) NOT NULL DEFAULT 'Reporte operacional'");
+  await ensureColumn(pool, "reportes", "fuente", "fuente VARCHAR(180) NOT NULL DEFAULT 'vuelos, recursos, incidencias y bitacora'");
+  await ensureColumn(pool, "reportes", "fecha_generacion", "fecha_generacion DATE NULL");
+  await ensureColumn(pool, "reportes", "eliminado", "eliminado TINYINT(1) NOT NULL DEFAULT 0");
+  await ensureColumn(pool, "reportes", "creado_por", "creado_por INT NULL");
+  await ensureColumn(pool, "reportes", "creado_en", "creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+  await ensureColumn(pool, "reportes", "actualizado_en", "actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
 
-  if (await columnExists("reportes", "tipo_reporte")) {
+  if (await columnExists(pool, "reportes", "tipo_reporte")) {
     await pool.query("ALTER TABLE reportes MODIFY tipo_reporte VARCHAR(80) NOT NULL DEFAULT 'Operacional'");
     await pool.query("UPDATE reportes SET tipo = tipo_reporte WHERE (tipo IS NULL OR tipo = '' OR tipo = 'Operacional') AND tipo_reporte IS NOT NULL");
   }
-  if (await columnExists("reportes", "id_usuario")) {
+  if (await columnExists(pool, "reportes", "id_usuario")) {
     await pool.query("ALTER TABLE reportes MODIFY id_usuario INT NULL");
   }
   await pool.query("UPDATE reportes SET titulo = tipo WHERE titulo IS NULL OR titulo = '' OR titulo = 'Reporte operacional'");
@@ -468,626 +360,865 @@ async function ensureDatabase() {
   );
 }
 
-async function serveStatic(req, res, pathname) {
-  const safePath = pathname === "/" ? "/index.html" : pathname;
-  const filePath = normalize(join(publicDir, safePath));
+/** Creates the HTTP request handler backed by a MySQL-compatible connection pool. */
+export function createRequestHandler(pool, { publicDir = defaultPublicDir } = {}) {
+  const resolvedPublicDir = resolve(publicDir);
 
-  if (!filePath.startsWith(publicDir)) {
-    res.writeHead(403);
-    return res.end("Acceso denegado");
-  }
+  async function serveStatic(res, pathname) {
+    const safePath = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+    const filePath = resolve(resolvedPublicDir, safePath);
 
-  try {
-    const content = await readFile(filePath);
-    const type = mime[extname(filePath)] || "application/octet-stream";
-    res.writeHead(200, { "Content-Type": type });
-    res.end(content);
-  } catch {
-    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Archivo no encontrado");
-  }
-}
-
-// Allow previewing an existing database without reapplying demonstration seeds.
-if (process.env.SKIP_DATABASE_INIT !== "1") await ensureDatabase();
-
-const server = createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-
-    if (req.method === "GET" && !url.pathname.startsWith("/api/")) {
-      return serveStatic(req, res, url.pathname);
+    if (filePath !== resolvedPublicDir && !filePath.startsWith(resolvedPublicDir + sep)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end("Acceso denegado");
     }
 
-    if (req.method === "GET" && url.pathname === "/api/auth/me") {
-      const active = sessionUser(req);
-      return sendJson(res, 200, { user: active || null });
+    try {
+      const content = await readFile(filePath);
+      const type = mime[extname(filePath)] || "application/octet-stream";
+      res.writeHead(200, { "Content-Type": type });
+      res.end(content);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Archivo no encontrado");
+    }
+  }
+
+  async function logAudit(action, detail) {
+    await pool.query("INSERT INTO bitacora (accion, detalle) VALUES (?, ?)", [action, detail]);
+  }
+
+  async function resolveSession(req) {
+    const token = parseCookies(req).aerocontrol_session;
+    if (!token) return null;
+
+    const tokenHash = hashSessionToken(token);
+    const [rows] = await pool.query(
+      `SELECT u.id, u.nombre, u.apellido, u.dni, u.celular, u.correo, u.rol, u.area, u.habilitado,
+              s.expira_en
+       FROM sesiones s
+       INNER JOIN usuarios u ON u.id = s.usuario_id
+       WHERE s.token_hash = ?
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    const row = rows[0];
+    if (!row || Number(row.expira_en) <= Date.now() || !row.habilitado) {
+      await pool.query("DELETE FROM sesiones WHERE token_hash = ?", [tokenHash]);
+      return null;
     }
 
-    if (req.method === "POST" && url.pathname === "/api/auth/register") {
-      const data = await readJson(req);
-      const error = validateUser(data);
-      if (error) return sendJson(res, 400, { error });
+    return { tokenHash, user: publicUser(row) };
+  }
 
-      const rol = ["Operador", "Supervisor", "Administrador"].includes(data.rol) ? data.rol : "Operador";
-      const area = String(data.area || "Operaciones").trim();
+  async function createSession(res, user) {
+    const token = generateSessionToken();
+    const tokenHash = hashSessionToken(token);
+    const expiresAt = Date.now() + SESSION_TTL_MS;
+    await pool.query(
+      "INSERT INTO sesiones (token_hash, usuario_id, expira_en) VALUES (?, ?, ?)",
+      [tokenHash, user.id, expiresAt]
+    );
+    res.setHeader("Set-Cookie", buildSessionCookie(token));
+    return token;
+  }
 
-      try {
-        const [result] = await pool.query(
-          `INSERT INTO usuarios (nombre, apellido, dni, celular, correo, rol, area, password_hash)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            String(data.nombre).trim(),
-            String(data.apellido).trim(),
-            String(data.dni).trim(),
-            String(data.celular).trim(),
-            String(data.correo).trim(),
-            rol,
-            area,
-            hashPassword(data.password)
-          ]
-        );
+  async function destroySessionByRequest(req, res) {
+    const token = parseCookies(req).aerocontrol_session;
+    let activeUser = null;
+    if (token) {
+      const tokenHash = hashSessionToken(token);
+      const existing = await resolveSession(req);
+      activeUser = existing?.user || null;
+      await pool.query("DELETE FROM sesiones WHERE token_hash = ?", [tokenHash]);
+    }
+    res.setHeader("Set-Cookie", buildSessionCookie("", 0));
+    return activeUser;
+  }
 
-        const [[user]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [result.insertId]);
-        return sendJson(res, 201, { user: publicUser(user) });
-      } catch (error) {
-        if (error.code === "ER_DUP_ENTRY") {
-          return sendJson(res, 409, { error: "DNI o correo ya registrado" });
+  async function revokeUserSessions(userId) {
+    await pool.query("DELETE FROM sesiones WHERE usuario_id = ?", [userId]);
+  }
+
+  function loginKeysFor(req, dni) {
+    const ip = String(req.socket?.remoteAddress || "local").slice(0, 64);
+    const cleanDni = String(dni || "").trim();
+    return [`ip:${ip}:${cleanDni}`, `dni:${cleanDni}`];
+  }
+
+  async function readAttemptState(clave, now) {
+    const [rows] = await pool.query(
+      "SELECT clave, intentos, primer_intento, bloqueado_hasta FROM intentos_login WHERE clave = ? LIMIT 1",
+      [clave]
+    );
+    const state = rows[0];
+    if (!state) return { clave, intentos: 0, primer_intento: now, bloqueado_hasta: 0 };
+    if (Number(state.bloqueado_hasta) > now) {
+      return {
+        clave,
+        intentos: Number(state.intentos),
+        primer_intento: Number(state.primer_intento),
+        bloqueado_hasta: Number(state.bloqueado_hasta)
+      };
+    }
+    if (now - Number(state.primer_intento) > LOGIN_WINDOW_MS) {
+      await pool.query("DELETE FROM intentos_login WHERE clave = ?", [clave]);
+      return { clave, intentos: 0, primer_intento: now, bloqueado_hasta: 0 };
+    }
+    return {
+      clave,
+      intentos: Number(state.intentos),
+      primer_intento: Number(state.primer_intento),
+      bloqueado_hasta: Number(state.bloqueado_hasta)
+    };
+  }
+
+  async function getBlockedUntil(keys, now) {
+    let blockedUntil = 0;
+    for (const key of keys) {
+      const state = await readAttemptState(key, now);
+      if (state.bloqueado_hasta > blockedUntil) blockedUntil = state.bloqueado_hasta;
+    }
+    return blockedUntil;
+  }
+
+  async function recordLoginFailure(keys, now) {
+    let maxAttempts = 0;
+    let blockedUntil = 0;
+    for (const key of keys) {
+      const current = await readAttemptState(key, now);
+      const nextCount = current.intentos + 1;
+      const nextBlockedUntil = nextCount >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_LOCK_MS : 0;
+      await pool.query(
+        `INSERT INTO intentos_login (clave, intentos, primer_intento, bloqueado_hasta)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+          intentos = VALUES(intentos),
+          primer_intento = VALUES(primer_intento),
+          bloqueado_hasta = VALUES(bloqueado_hasta)`,
+        [key, nextCount, current.primer_intento, nextBlockedUntil]
+      );
+      if (nextCount > maxAttempts) maxAttempts = nextCount;
+      if (nextBlockedUntil > blockedUntil) blockedUntil = nextBlockedUntil;
+    }
+    return { count: maxAttempts, blockedUntil };
+  }
+
+  async function clearLoginAttempts(keys) {
+    for (const key of keys) {
+      await pool.query("DELETE FROM intentos_login WHERE clave = ?", [key]);
+    }
+  }
+
+  async function requireAuth(req, res) {
+    const session = await resolveSession(req);
+    if (!session) {
+      if (parseCookies(req).aerocontrol_session) {
+        res.setHeader("Set-Cookie", buildSessionCookie("", 0));
+      }
+      sendJson(res, 401, { error: "No autorizado" });
+      return null;
+    }
+    return session;
+  }
+
+  async function requirePermission(req, res, permissions, deniedMessage) {
+    const session = await requireAuth(req, res);
+    if (!session) return null;
+    const required = Array.isArray(permissions) ? permissions : [permissions];
+    if (!hasAnyPermission(session.user, required)) {
+      sendJson(res, 403, { error: deniedMessage });
+      return null;
+    }
+    return session;
+  }
+
+  return async function requestHandler(req, res) {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
+
+      if (req.method === "GET" && !url.pathname.startsWith("/api/")) {
+        return serveStatic(res, url.pathname);
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/auth/me") {
+        const session = await resolveSession(req);
+        if (!session && parseCookies(req).aerocontrol_session) {
+          res.setHeader("Set-Cookie", buildSessionCookie("", 0));
         }
-        throw error;
-      }
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/auth/login") {
-      const data = await readJson(req);
-      const dni = String(data.dni || "").trim();
-      const password = String(data.password || "");
-      if (!/^\d{8}$/.test(dni) || !password) {
-        return sendJson(res, 400, { error: "Ingresa un DNI válido y tu contraseña." });
+        return sendJson(res, 200, { user: session?.user || null });
       }
 
-      const attemptKey = loginAttemptKey(req, dni);
-      const attemptState = getLoginAttemptState(attemptKey);
-      if (attemptState.blockedUntil > Date.now()) {
-        const retryAfterSeconds = Math.ceil((attemptState.blockedUntil - Date.now()) / 1000);
-        res.setHeader("Retry-After", String(retryAfterSeconds));
-        return sendJson(res, 429, {
-          error: "Demasiados intentos. El acceso está bloqueado temporalmente.",
-          retryAfterSeconds
-        });
+      if (req.method === "POST" && url.pathname === "/api/auth/register") {
+        const data = await readJson(req);
+        const error = validateUser(data);
+        if (error) return sendJson(res, 400, { error });
+
+        // Self-registration is always restricted to standard Operador accounts in non-privileged areas.
+        const rol = "Operador";
+        const areaCheck = resolvePublicRegistrationArea(data.area);
+        if (!areaCheck.ok) return sendJson(res, 400, { error: areaCheck.error });
+
+        try {
+          const [result] = await pool.query(
+            `INSERT INTO usuarios (nombre, apellido, dni, celular, correo, rol, area, password_hash)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              String(data.nombre).trim(),
+              String(data.apellido).trim(),
+              String(data.dni).trim(),
+              String(data.celular).trim(),
+              String(data.correo).trim(),
+              rol,
+              areaCheck.area,
+              hashPassword(data.password)
+            ]
+          );
+
+          await logAudit("REGISTRO_USUARIO", `Auto-registro de usuario DNI ${String(data.dni).trim()} como Operador`);
+          const [[user]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [result.insertId]);
+          return sendJson(res, 201, { user: publicUser(user) });
+        } catch (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return sendJson(res, 409, { error: "DNI o correo ya registrado" });
+          }
+          throw err;
+        }
       }
 
-      const [[user]] = await pool.query("SELECT * FROM usuarios WHERE dni = ?", [dni]);
+      if (req.method === "POST" && url.pathname === "/api/auth/login") {
+        const data = await readJson(req);
+        const dni = String(data.dni || "").trim();
+        const password = String(data.password || "");
+        if (!/^\d{8}$/.test(dni) || !password) {
+          return sendJson(res, 400, { error: "Ingresa un DNI válido y tu contraseña." });
+        }
 
-      if (!user || !verifyPassword(password, user.password_hash)) {
-        const failed = recordLoginFailure(attemptKey);
-        const attemptsRemaining = Math.max(0, LOGIN_MAX_ATTEMPTS - failed.count);
-        if (failed.blockedUntil > Date.now()) {
-          const retryAfterSeconds = Math.ceil((failed.blockedUntil - Date.now()) / 1000);
+        const now = Date.now();
+        const attemptKeys = loginKeysFor(req, dni);
+        const blockedUntil = await getBlockedUntil(attemptKeys, now);
+        if (blockedUntil > now) {
+          const retryAfterSeconds = Math.ceil((blockedUntil - now) / 1000);
           res.setHeader("Retry-After", String(retryAfterSeconds));
           return sendJson(res, 429, {
-            error: "Límite de intentos alcanzado. Intenta nuevamente en 15 minutos.",
-            attemptsRemaining: 0,
+            error: "Demasiados intentos. El acceso está bloqueado temporalmente.",
             retryAfterSeconds
           });
         }
-        return sendJson(res, 401, {
-          error: `Credenciales incorrectas. Te quedan ${attemptsRemaining} intento${attemptsRemaining === 1 ? "" : "s"}.`,
-          attemptsRemaining
+
+        const [[user]] = await pool.query("SELECT * FROM usuarios WHERE dni = ?", [dni]);
+        if (!user || !verifyPassword(password, user.password_hash)) {
+          const failed = await recordLoginFailure(attemptKeys, now);
+          const attemptsRemaining = Math.max(0, LOGIN_MAX_ATTEMPTS - failed.count);
+          if (failed.blockedUntil > now) {
+            await logAudit("LOGIN_BLOQUEADO", `Bloqueo temporal tras ${LOGIN_MAX_ATTEMPTS} intentos fallidos para DNI ${dni}`);
+            const retryAfterSeconds = Math.ceil((failed.blockedUntil - now) / 1000);
+            res.setHeader("Retry-After", String(retryAfterSeconds));
+            return sendJson(res, 429, {
+              error: "Límite de intentos alcanzado. Intenta nuevamente en 15 minutos.",
+              attemptsRemaining: 0,
+              retryAfterSeconds
+            });
+          }
+          return sendJson(res, 401, {
+            error: `Credenciales incorrectas. Te quedan ${attemptsRemaining} intento${attemptsRemaining === 1 ? "" : "s"}.`,
+            attemptsRemaining
+          });
+        }
+
+        if (!user.habilitado) {
+          await logAudit("LOGIN_CUENTA_DESHABILITADA", `Intento de acceso a cuenta deshabilitada DNI ${dni}`);
+          return sendJson(res, 403, { error: "Esta cuenta está deshabilitada. Contacta al administrador." });
+        }
+
+        await clearLoginAttempts(attemptKeys);
+
+        // Migrate legacy unsalted SHA-256 hashes seamlessly upon successful login.
+        if (!String(user.password_hash).startsWith("scrypt$")) {
+          await pool.query("UPDATE usuarios SET password_hash = ? WHERE id = ?", [hashPassword(password), user.id]);
+        }
+
+        // Prevent session fixation by invalidating any prior token carried by the client before issuing a new one.
+        const oldToken = parseCookies(req).aerocontrol_session;
+        if (oldToken) {
+          await pool.query("DELETE FROM sesiones WHERE token_hash = ?", [hashSessionToken(oldToken)]);
+        }
+
+        const publicData = publicUser(user);
+        await createSession(res, publicData);
+        await logAudit("LOGIN_EXITOSO", `Inicio de sesión de ${publicData.dni} (${resolveActor(publicData)})`);
+        return sendJson(res, 200, { user: publicData });
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/auth/logout") {
+        const previousUser = await destroySessionByRequest(req, res);
+        if (previousUser) {
+          await logAudit("LOGOUT", `Cierre de sesión de ${previousUser.dni}`);
+        }
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "PATCH" && url.pathname === "/api/auth/profile") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const active = session.user;
+
+        const data = await readJson(req);
+        const nombre = String(data.nombre || "").trim();
+        const apellido = String(data.apellido || "").trim();
+        const celular = String(data.celular || "").trim();
+        const correo = String(data.correo || "").trim();
+        const area = String(data.area || "").trim();
+        const newPassword = String(data.password || "");
+
+        if (!nombre || !apellido || !celular || !correo || !area) {
+          return sendJson(res, 400, { error: "Completa todos los campos." });
+        }
+        if (!/^9\d{8}$/.test(celular)) {
+          return sendJson(res, 400, { error: "El celular debe tener 9 dígitos y empezar con 9." });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+          return sendJson(res, 400, { error: "Correo inválido." });
+        }
+        if (!isAreaAllowedForProfileUpdate(active.rol, area, active.area)) {
+          return sendJson(res, 403, { error: "No puedes asignarte un área con privilegios distintos a tu rol actual." });
+        }
+        if (newPassword) {
+          const passwordError = passwordPolicyError(newPassword);
+          if (passwordError) return sendJson(res, 400, { error: passwordError });
+        }
+
+        try {
+          if (newPassword) {
+            await pool.query(
+              "UPDATE usuarios SET nombre = ?, apellido = ?, celular = ?, correo = ?, area = ?, password_hash = ? WHERE id = ?",
+              [nombre, apellido, celular, correo, area, hashPassword(newPassword), active.id]
+            );
+          } else {
+            await pool.query(
+              "UPDATE usuarios SET nombre = ?, apellido = ?, celular = ?, correo = ?, area = ? WHERE id = ?",
+              [nombre, apellido, celular, correo, area, active.id]
+            );
+          }
+        } catch (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return sendJson(res, 409, { error: "Correo ya registrado en otra cuenta." });
+          }
+          throw err;
+        }
+
+        await logAudit(
+          newPassword ? "ACTUALIZACION_PERFIL_CLAVE" : "ACTUALIZACION_PERFIL",
+          `Usuario ${active.dni} actualizó su perfil`
+        );
+
+        const [[user]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [active.id]);
+        const publicData = publicUser(user);
+
+        if (newPassword) {
+          await revokeUserSessions(active.id);
+          await createSession(res, publicData);
+        }
+
+        return sendJson(res, 200, { user: publicData });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/usuarios") {
+        const session = await requirePermission(req, res, "manageUsers", "Solo el Administrador puede consultar usuarios.");
+        if (!session) return;
+
+        const [rows] = await pool.query(
+          `SELECT id, nombre, apellido, dni, celular, correo, rol, area, habilitado
+           FROM usuarios
+           ORDER BY id`
+        );
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "PATCH" && url.pathname.startsWith("/api/usuarios/")) {
+        const session = await requirePermission(req, res, "manageUsers", "Tu perfil no puede modificar usuarios.");
+        if (!session) return;
+        const active = session.user;
+
+        const id = Number(url.pathname.split("/").pop());
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: "Usuario inválido" });
+
+        const data = await readJson(req);
+        const [[existingUser]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [id]);
+        if (!existingUser) return sendJson(res, 404, { error: "Usuario no encontrado." });
+
+        const nombre = String(data.nombre || "").trim();
+        const apellido = String(data.apellido || "").trim();
+        const celular = String(data.celular || "").trim();
+        const correo = String(data.correo || "").trim();
+        const rol = String(data.rol || "").trim();
+        const area = String(data.area || "").trim();
+        const habilitado = data.habilitado === undefined
+          ? Boolean(existingUser.habilitado)
+          : data.habilitado === true || data.habilitado === 1 || data.habilitado === "1";
+
+        if (!nombre || !apellido || !celular || !correo || !rol || !area) {
+          return sendJson(res, 400, { error: "Completa todos los campos del usuario." });
+        }
+        if (!/^9\d{8}$/.test(celular)) {
+          return sendJson(res, 400, { error: "El celular debe tener 9 dígitos y empezar con 9." });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+          return sendJson(res, 400, { error: "Correo inválido." });
+        }
+        if (!ALLOWED_ROLES.includes(rol)) {
+          return sendJson(res, 400, { error: "Rol inválido." });
+        }
+        if (Number(active.id) === id && !habilitado) {
+          return sendJson(res, 400, { error: "No puedes deshabilitar tu propia cuenta activa." });
+        }
+        if (Number(active.id) === id && rol !== existingUser.rol) {
+          return sendJson(res, 400, { error: "No puedes modificar tu propio rol desde esta vista." });
+        }
+
+        try {
+          await pool.query(
+            `UPDATE usuarios
+             SET nombre = ?, apellido = ?, celular = ?, correo = ?, rol = ?, area = ?, habilitado = ?
+             WHERE id = ?`,
+            [nombre, apellido, celular, correo, rol, area, habilitado ? 1 : 0, id]
+          );
+        } catch (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return sendJson(res, 409, { error: "El correo ya pertenece a otro usuario." });
+          }
+          throw err;
+        }
+
+        if (!habilitado || rol !== existingUser.rol || area !== existingUser.area) {
+          await revokeUserSessions(id);
+        }
+
+        await logAudit("ACTUALIZACION_USUARIO", `Usuario ${active.dni} actualizó datos del usuario ID ${id}`);
+
+        const [[user]] = await pool.query(
+          `SELECT id, nombre, apellido, dni, celular, correo, rol, area, habilitado
+           FROM usuarios
+           WHERE id = ?`,
+          [id]
+        );
+        return sendJson(res, 200, user);
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/vuelos") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const [rows] = await pool.query("SELECT * FROM vuelos ORDER BY hora ASC, id ASC");
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/vuelos") {
+        const session = await requirePermission(
+          req,
+          res,
+          ["createFlight", "approveIncoming"],
+          "Tu perfil no puede registrar ni autorizar vuelos."
+        );
+        if (!session) return;
+
+        const data = await readJson(req);
+        const error = validateFlight(data);
+        if (error) return sendJson(res, 400, { error });
+
+        const tipo = normalizeFlightType(String(data.tipo).trim());
+        try {
+          await pool.query(
+            `INSERT INTO vuelos (codigo, ruta, hora, puerta, estado, tipo)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              String(data.codigo).trim().toUpperCase(),
+              String(data.ruta).trim(),
+              String(data.hora).trim(),
+              String(data.puerta).trim().toUpperCase(),
+              String(data.estado).trim(),
+              tipo
+            ]
+          );
+        } catch (err) {
+          if (err.code === "ER_DUP_ENTRY") {
+            return sendJson(res, 409, { error: "El código de vuelo ya existe." });
+          }
+          throw err;
+        }
+
+        await logAudit("REGISTRO_VUELO", `Usuario ${session.user.dni} registró un vuelo`);
+        return sendJson(res, 201, { ok: true });
+      }
+
+      if (req.method === "PATCH" && url.pathname.startsWith("/api/vuelos/")) {
+        const session = await requirePermission(req, res, "changeFlight", "Tu perfil no puede cambiar el estado de vuelos.");
+        if (!session) return;
+
+        const id = Number(url.pathname.split("/").pop());
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: "Vuelo inválido." });
+
+        const data = await readJson(req);
+        const estado = String(data.estado || "").trim();
+        if (!FLIGHT_STATES.includes(estado)) {
+          return sendJson(res, 400, { error: "Estado de vuelo inválido." });
+        }
+
+        const [result] = await pool.query("UPDATE vuelos SET estado = ? WHERE id = ?", [estado, id]);
+        if (!result.affectedRows) return sendJson(res, 404, { error: "Vuelo no encontrado." });
+
+        await logAudit("CAMBIO_ESTADO_VUELO", `Usuario ${session.user.dni} cambió el estado del vuelo ID ${id}`);
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/incidencias") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const [rows] = await pool.query("SELECT * FROM incidencias ORDER BY creado_en DESC, id DESC");
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/incidencias") {
+        const session = await requirePermission(req, res, "simulateIncident", "Tu perfil no puede registrar incidencias.");
+        if (!session) return;
+
+        const data = await readJson(req);
+        const prioridad = String(data.prioridad || "Alta").trim();
+        if (!INCIDENT_PRIORITIES.includes(prioridad)) {
+          return sendJson(res, 400, { error: "Prioridad de incidencia inválida." });
+        }
+
+        const [[countRow]] = await pool.query("SELECT COUNT(*) AS total FROM incidencias");
+        const next = Number(countRow.total) + 1;
+        const codigo = `INC-${String(next).padStart(3, "0")}`;
+
+        await pool.query(
+          "INSERT INTO incidencias (codigo, tipo, prioridad, descripcion, vuelo_id) VALUES (?, ?, ?, ?, NULL)",
+          [
+            codigo,
+            String(data.tipo || "Infraestructura").trim(),
+            prioridad,
+            String(data.descripcion || "Incidencia operativa registrada").trim()
+          ]
+        );
+
+        await logAudit("REGISTRO_INCIDENCIA", `Usuario ${session.user.dni} registró incidencia ${codigo}`);
+        return sendJson(res, 201, { ok: true, codigo });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/recursos") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const [rows] = await pool.query("SELECT * FROM recursos ORDER BY tipo ASC, codigo ASC");
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "PATCH" && url.pathname.startsWith("/api/recursos/")) {
+        const session = await requirePermission(req, res, "updateResource", "Tu perfil no puede actualizar recursos.");
+        if (!session) return;
+
+        const id = Number(url.pathname.split("/").pop());
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: "Recurso inválido." });
+
+        const data = await readJson(req);
+        const estado = String(data.estado || "").trim();
+        if (!estado) return sendJson(res, 400, { error: "Estado de recurso inválido." });
+
+        const [result] = await pool.query("UPDATE recursos SET estado = ? WHERE id = ?", [estado, id]);
+        if (!result.affectedRows) return sendJson(res, 404, { error: "Recurso no encontrado." });
+
+        const [[resource]] = await pool.query("SELECT * FROM recursos WHERE id = ?", [id]);
+        await logAudit("ACTUALIZACION_RECURSO", `Usuario ${session.user.dni} actualizó recurso ${resource?.codigo || id}`);
+        return sendJson(res, 200, resource);
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/reportes") {
+        const session = await requirePermission(req, res, "generateReport", "Tu perfil no tiene acceso a reportes.");
+        if (!session) return;
+
+        const reportIdColumn = (await columnExists(pool, "reportes", "id")) ? "id" : "id_reporte";
+        const [rows] = await pool.query(
+          `SELECT ${reportIdColumn} AS id, tipo, titulo, contenido, fuente,
+                  DATE_FORMAT(fecha_generacion, '%Y-%m-%d') AS fecha_generacion,
+                  creado_en, actualizado_en
+           FROM reportes
+           WHERE eliminado = 0
+           ORDER BY fecha_generacion DESC, ${reportIdColumn} DESC`
+        );
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/reportes") {
+        const session = await requirePermission(req, res, "generateReport", "Tu perfil no puede generar reportes.");
+        if (!session) return;
+
+        const data = await readJson(req);
+        const tipo = String(data.tipo || data.type || "Operacional").trim();
+        const titulo = String(data.titulo || data.title || "Reporte operacional").trim();
+        const contenido = String(data.contenido || data.desc || "Reporte generado desde el panel operacional.").trim();
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(data.fecha_generacion || data.dateInput || ""))
+          ? String(data.fecha_generacion || data.dateInput)
+          : new Date().toISOString().slice(0, 10);
+
+        if (!tipo || !titulo || !contenido) return sendJson(res, 400, { error: "Completa tipo, titulo y contenido del reporte." });
+
+        const [result] = await pool.query(
+          `INSERT INTO reportes (tipo, titulo, contenido, fecha_generacion, creado_por)
+           VALUES (?, ?, ?, ?, ?)`,
+          [tipo, titulo, contenido, fecha, session.user.id]
+        );
+
+        await logAudit("REPORTE_CREADO", `Usuario ${session.user.dni} generó reporte ${titulo}`);
+        return sendJson(res, 201, { ok: true, id: result.insertId });
+      }
+
+      if (req.method === "PATCH" && url.pathname.startsWith("/api/reportes/")) {
+        const session = await requirePermission(req, res, "generateReport", "Tu perfil no puede editar reportes.");
+        if (!session) return;
+
+        const id = Number(url.pathname.split("/").pop());
+        const data = await readJson(req);
+        const tipo = String(data.tipo || data.type || "").trim();
+        const titulo = String(data.titulo || data.title || "").trim();
+        const contenido = String(data.contenido || data.desc || "").trim();
+        const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(data.fecha_generacion || data.dateInput || ""))
+          ? String(data.fecha_generacion || data.dateInput)
+          : new Date().toISOString().slice(0, 10);
+
+        if (!Number.isInteger(id) || id <= 0 || !tipo || !titulo || !contenido) {
+          return sendJson(res, 400, { error: "Datos de reporte inválidos." });
+        }
+
+        const reportIdColumn = (await columnExists(pool, "reportes", "id")) ? "id" : "id_reporte";
+        const [result] = await pool.query(
+          `UPDATE reportes
+           SET tipo = ?, titulo = ?, contenido = ?, fecha_generacion = ?
+           WHERE ${reportIdColumn} = ? AND eliminado = 0`,
+          [tipo, titulo, contenido, fecha, id]
+        );
+        if (!result.affectedRows) return sendJson(res, 404, { error: "Reporte no encontrado." });
+
+        await logAudit("REPORTE_ACTUALIZADO", `Usuario ${session.user.dni} actualizó reporte ID ${id}`);
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "DELETE" && url.pathname.startsWith("/api/reportes/")) {
+        const session = await requirePermission(req, res, "generateReport", "Tu perfil no puede eliminar reportes.");
+        if (!session) return;
+
+        const id = Number(url.pathname.split("/").pop());
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: "Reporte inválido." });
+
+        const reportIdColumn = (await columnExists(pool, "reportes", "id")) ? "id" : "id_reporte";
+        const [result] = await pool.query(`UPDATE reportes SET eliminado = 1 WHERE ${reportIdColumn} = ? AND eliminado = 0`, [id]);
+        if (!result.affectedRows) return sendJson(res, 404, { error: "Reporte no encontrado." });
+
+        await logAudit("REPORTE_ELIMINADO", `Usuario ${session.user.dni} eliminó reporte ID ${id}`);
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/solicitudes") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+
+        const [rows] = await pool.query(
+          `SELECT id, codigo, ruta, hora, puerta, estado, tipo, motivo, origen_vuelo,
+                  UNIX_TIMESTAMP(disponible_desde) * 1000 AS dueAt,
+                  creado_en
+           FROM solicitudes_operativas
+           WHERE estado = 'Pendiente'
+           ORDER BY disponible_desde ASC, creado_en ASC`
+        );
+        return sendJson(res, 200, rows);
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/solicitudes") {
+        const session = await requirePermission(
+          req,
+          res,
+          ["createFlight", "changeFlight", "approveIncoming"],
+          "Tu perfil no puede crear solicitudes operativas."
+        );
+        if (!session) return;
+
+        const data = await readJson(req);
+        const codigo = String(data.codigo || "").trim().toUpperCase();
+        const ruta = String(data.ruta || "").trim();
+        const hora = String(data.hora || "").trim();
+        const puerta = String(data.puerta || "").trim().toUpperCase();
+        const tipo = String(data.tipo || "Salida").trim() === "Llegada" ? "Llegada" : "Salida";
+        const motivo = String(data.motivo || "Solicitud operativa pendiente").trim();
+        const origen = String(data.origen_vuelo || data.sourceArrival || "").trim() || null;
+        const dueDate = Number(data.dueAt) ? new Date(Number(data.dueAt)) : new Date();
+
+        if (!codigo || !ruta || !hora || !puerta) return sendJson(res, 400, { error: "Datos incompletos para solicitud operativa." });
+
+        await pool.query(
+          `INSERT INTO solicitudes_operativas (codigo, ruta, hora, puerta, tipo, motivo, origen_vuelo, disponible_desde)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+            ruta = VALUES(ruta),
+            hora = VALUES(hora),
+            puerta = VALUES(puerta),
+            tipo = VALUES(tipo),
+            motivo = VALUES(motivo),
+            origen_vuelo = VALUES(origen_vuelo),
+            disponible_desde = VALUES(disponible_desde),
+            estado = 'Pendiente'`,
+          [codigo, ruta, hora, puerta, tipo, motivo, origen, dueDate]
+        );
+
+        await logAudit("SOLICITUD_OPERATIVA", `Usuario ${session.user.dni} registró solicitud ${codigo}`);
+
+        const [[requestRow]] = await pool.query(
+          `SELECT id, codigo, ruta, hora, puerta, estado, tipo, motivo, origen_vuelo,
+                  UNIX_TIMESTAMP(disponible_desde) * 1000 AS dueAt
+           FROM solicitudes_operativas WHERE codigo = ?`,
+          [codigo]
+        );
+        return sendJson(res, 201, requestRow);
+      }
+
+      if ((req.method === "PATCH" || req.method === "DELETE") && url.pathname.startsWith("/api/solicitudes/")) {
+        const session = await requirePermission(
+          req,
+          res,
+          ["createFlight", "changeFlight", "approveIncoming"],
+          "Tu perfil no puede gestionar solicitudes operativas."
+        );
+        if (!session) return;
+
+        const id = Number(url.pathname.split("/").pop());
+        if (!Number.isInteger(id) || id <= 0) return sendJson(res, 400, { error: "Solicitud inválida." });
+
+        const nextState = req.method === "DELETE" ? "Cerrada" : String((await readJson(req)).estado || "Cerrada").trim();
+        const [result] = await pool.query("UPDATE solicitudes_operativas SET estado = ? WHERE id = ?", [nextState, id]);
+        if (!result.affectedRows) return sendJson(res, 404, { error: "Solicitud no encontrada." });
+
+        await logAudit("SOLICITUD_ACTUALIZADA", `Usuario ${session.user.dni} cambió solicitud ID ${id} a ${nextState}`);
+        return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/role-tools") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+
+        const [rows] = await pool.query(
+          `SELECT ar.id, ar.actor, ar.tipo, ar.detalle, ar.datos, ar.creado_en,
+                  u.nombre, u.apellido, u.dni, u.area
+           FROM acciones_rol ar
+           LEFT JOIN usuarios u ON u.id = ar.usuario_id
+           ORDER BY ar.creado_en DESC, ar.id DESC
+           LIMIT 80`
+        );
+
+        return sendJson(res, 200, rows.map(row => ({
+          ...row,
+          datos: typeof row.datos === "string" ? JSON.parse(row.datos || "{}") : (row.datos || {})
+        })));
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/role-tools") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+        const active = session.user;
+
+        const data = await readJson(req);
+        const serverActor = resolveActor(active);
+        const requestedActor = String(data.actor || "").trim().toLowerCase();
+        if (requestedActor && requestedActor !== serverActor) {
+          return sendJson(res, 403, { error: "No puedes registrar acciones a nombre de otro rol." });
+        }
+
+        const tipo = String(data.tipo || "ACCION_ROL").trim().slice(0, 80);
+        const detalle = String(data.detalle || "Accion operacional registrada").trim();
+        const datos = JSON.stringify(data.datos || {});
+
+        const [result] = await pool.query(
+          `INSERT INTO acciones_rol (usuario_id, actor, tipo, detalle, datos)
+           VALUES (?, ?, ?, ?, CAST(? AS JSON))`,
+          [active.id, serverActor, tipo, detalle, datos]
+        );
+
+        await logAudit(tipo, `Usuario ${active.dni} registró acción de rol (${serverActor}): ${detalle}`);
+        return sendJson(res, 201, { ok: true, id: result.insertId });
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/metricas") {
+        const session = await requireAuth(req, res);
+        if (!session) return;
+
+        const [[llegadas]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE tipo = 'Llegada'");
+        const [[salidas]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE tipo = 'Salida'");
+        const [[retrasados]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE estado = 'Retrasado'");
+        const [[incidencias]] = await pool.query("SELECT COUNT(*) AS total FROM incidencias WHERE estado = 'Abierta'");
+        const [[auditadas]] = await pool.query("SELECT COUNT(*) AS total FROM bitacora");
+
+        return sendJson(res, 200, {
+          llegadas: llegadas.total,
+          salidas: salidas.total,
+          retrasados: retrasados.total,
+          incidencias: incidencias.total,
+          auditadas: auditadas.total,
+          retrasoPromedio: retrasados.total ? 14 : 0
         });
       }
 
-      if (!user.habilitado) {
-        return sendJson(res, 403, { error: "Esta cuenta está deshabilitada. Contacta al administrador." });
+      if (req.method === "GET" && url.pathname === "/api/bitacora") {
+        const session = await requirePermission(req, res, "viewAudit", "Tu perfil no tiene acceso a la bitácora de auditoría.");
+        if (!session) return;
+
+        const [rows] = await pool.query("SELECT * FROM bitacora ORDER BY fecha_hora DESC, id DESC LIMIT 50");
+        return sendJson(res, 200, rows);
       }
 
-      loginAttempts.delete(attemptKey);
-
-      const publicData = publicUser(user);
-      setSession(res, publicData);
-      return sendJson(res, 200, { user: publicData });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/usuarios") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const [rows] = await pool.query(
-        `SELECT id, nombre, apellido, dni, celular, correo, rol, area, habilitado
-         FROM usuarios
-         ORDER BY id`
-      );
-
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "PATCH" && url.pathname.startsWith("/api/usuarios/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      if (!canManageUsers(active)) {
-        return sendJson(res, 403, { error: "Tu perfil no puede modificar usuarios." });
+      return sendJson(res, 404, { error: "Ruta no encontrada" });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return sendJson(res, error.status, { error: error.message });
       }
-
-      const id = Number(url.pathname.split("/").pop());
-      if (!id) return sendJson(res, 400, { error: "Usuario invÃ¡lido" });
-
-      const data = await readJson(req);
-      const allowedRoles = ["Operador", "Supervisor", "Administrador"];
-
-      const [[existingUser]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [id]);
-      if (!existingUser) return sendJson(res, 404, { error: "Usuario no encontrado." });
-
-      const nombre = String(data.nombre || "").trim();
-      const apellido = String(data.apellido || "").trim();
-      const celular = String(data.celular || "").trim();
-      const correo = String(data.correo || "").trim();
-      const rol = String(data.rol || "").trim();
-      const area = String(data.area || "").trim();
-      const habilitado = data.habilitado === undefined
-        ? Boolean(existingUser.habilitado)
-        : data.habilitado === true || data.habilitado === 1 || data.habilitado === "1";
-
-      if (!nombre || !apellido || !celular || !correo || !rol || !area) {
-        return sendJson(res, 400, { error: "Completa todos los campos del usuario." });
-      }
-
-      if (!/^9\d{8}$/.test(celular)) {
-        return sendJson(res, 400, { error: "El celular debe tener 9 dÃ­gitos y empezar con 9." });
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-        return sendJson(res, 400, { error: "Correo invÃ¡lido." });
-      }
-
-      if (!allowedRoles.includes(rol)) {
-        return sendJson(res, 400, { error: "Rol invÃ¡lido." });
-      }
-
-      if (Number(active.id) === id && !habilitado) {
-        return sendJson(res, 400, { error: "No puedes deshabilitar tu propia cuenta activa." });
-      }
-
-      await pool.query(
-        `UPDATE usuarios
-         SET nombre = ?, apellido = ?, celular = ?, correo = ?, rol = ?, area = ?, habilitado = ?
-         WHERE id = ?`,
-        [nombre, apellido, celular, correo, rol, area, habilitado ? 1 : 0, id]
-      );
-
-      if (!habilitado) revokeUserSessions(id);
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["ACTUALIZACION_USUARIO", `Usuario ${active.dni} actualizÃ³ datos del usuario ID ${id}`]
-      );
-
-      const [[user]] = await pool.query(
-        `SELECT id, nombre, apellido, dni, celular, correo, rol, area, habilitado
-         FROM usuarios
-         WHERE id = ?`,
-        [id]
-      );
-
-      return sendJson(res, 200, user);
+      console.error(error);
+      return sendJson(res, 500, { error: "Error interno del servidor" });
     }
-
-    if (req.method === "POST" && url.pathname === "/api/auth/logout") {
-      clearSession(req, res);
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === "PATCH" && url.pathname === "/api/auth/profile") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const data = await readJson(req);
-
-      const nombre = String(data.nombre || "").trim();
-      const apellido = String(data.apellido || "").trim();
-      const celular = String(data.celular || "").trim();
-      const correo = String(data.correo || "").trim();
-      const area = String(data.area || "").trim();
-      const newPassword = String(data.password || "");
-
-      if (!nombre || !apellido || !celular || !correo || !area) {
-        return sendJson(res, 400, { error: "Completa todos los campos." });
-      }
-
-      if (!/^9\d{8}$/.test(celular)) {
-        return sendJson(res, 400, { error: "El celular debe tener 9 dígitos y empezar con 9." });
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-        return sendJson(res, 400, { error: "Correo inválido." });
-      }
-
-      if (newPassword) {
-        const passwordError = passwordPolicyError(newPassword);
-        if (passwordError) return sendJson(res, 400, { error: passwordError });
-      }
-
-      if (newPassword) {
-        await pool.query(
-          "UPDATE usuarios SET nombre = ?, apellido = ?, celular = ?, correo = ?, area = ?, password_hash = ? WHERE id = ?",
-          [nombre, apellido, celular, correo, area, hashPassword(newPassword), active.id]
-        );
-      } else {
-        await pool.query(
-          "UPDATE usuarios SET nombre = ?, apellido = ?, celular = ?, correo = ?, area = ? WHERE id = ?",
-          [nombre, apellido, celular, correo, area, active.id]
-        );
-      }
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        [newPassword ? "ACTUALIZACION_PERFIL_CLAVE" : "ACTUALIZACION_PERFIL", `Usuario ${active.dni} actualizó su perfil`]
-      );
-
-      const [[user]] = await pool.query("SELECT * FROM usuarios WHERE id = ?", [active.id]);
-      const publicData = publicUser(user);
-
-      const token = parseCookies(req).aerocontrol_session;
-      if (token) sessions.set(token, publicData);
-
-      return sendJson(res, 200, { user: publicData });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/vuelos") {
-      const [rows] = await pool.query("SELECT * FROM vuelos ORDER BY hora ASC, id ASC");
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/vuelos") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const data = await readJson(req);
-      const error = validateFlight(data);
-      if (error) return sendJson(res, 400, { error });
-
-      const tipo = normalizeFlightType(String(data.tipo).trim());
-
-      await pool.query(
-        `INSERT INTO vuelos (codigo, ruta, hora, puerta, estado, tipo)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          String(data.codigo).trim().toUpperCase(),
-          String(data.ruta).trim(),
-          String(data.hora).trim(),
-          String(data.puerta).trim().toUpperCase(),
-          String(data.estado).trim(),
-          tipo
-        ]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["REGISTRO_VUELO", `Usuario ${active.dni} registrÃ³ un vuelo`]
-      );
-
-      return sendJson(res, 201, { ok: true });
-    }
-
-    if (req.method === "PATCH" && url.pathname.startsWith("/api/vuelos/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const id = Number(url.pathname.split("/").pop());
-      const data = await readJson(req);
-
-      await pool.query("UPDATE vuelos SET estado = ? WHERE id = ?", [String(data.estado).trim(), id]);
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["CAMBIO_ESTADO_VUELO", `Usuario ${active.dni} cambiÃ³ el estado del vuelo ID ${id}`]
-      );
-
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/incidencias") {
-      const [rows] = await pool.query("SELECT * FROM incidencias ORDER BY creado_en DESC, id DESC");
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/incidencias") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const data = await readJson(req);
-      const [[countRow]] = await pool.query("SELECT COUNT(*) AS total FROM incidencias");
-      const next = Number(countRow.total) + 1;
-      const codigo = `INC-${String(next).padStart(3, "0")}`;
-
-      await pool.query(
-        "INSERT INTO incidencias (codigo, tipo, prioridad, descripcion, vuelo_id) VALUES (?, ?, ?, ?, NULL)",
-        [
-          codigo,
-          String(data.tipo || "Infraestructura").trim(),
-          String(data.prioridad || "Alta").trim(),
-          String(data.descripcion || "Incidencia operativa registrada").trim()
-        ]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["REGISTRO_INCIDENCIA", `Usuario ${active.dni} registrÃ³ incidencia ${codigo}`]
-      );
-
-      return sendJson(res, 201, { ok: true, codigo });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/recursos") {
-      const [rows] = await pool.query("SELECT * FROM recursos ORDER BY tipo ASC, codigo ASC");
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "PATCH" && url.pathname.startsWith("/api/recursos/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const id = Number(url.pathname.split("/").pop());
-      const data = await readJson(req);
-
-      await pool.query("UPDATE recursos SET estado = ? WHERE id = ?", [String(data.estado).trim(), id]);
-
-      const [[resource]] = await pool.query("SELECT * FROM recursos WHERE id = ?", [id]);
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["ACTUALIZACION_RECURSO", `Usuario ${active.dni} actualizÃ³ recurso ${resource?.codigo || id}`]
-      );
-
-      return sendJson(res, 200, resource);
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/reportes") {
-      const reportIdColumn = (await columnExists("reportes", "id")) ? "id" : "id_reporte";
-      const [rows] = await pool.query(
-        `SELECT ${reportIdColumn} AS id, tipo, titulo, contenido, fuente,
-                DATE_FORMAT(fecha_generacion, '%Y-%m-%d') AS fecha_generacion,
-                creado_en, actualizado_en
-         FROM reportes
-         WHERE eliminado = 0
-         ORDER BY fecha_generacion DESC, ${reportIdColumn} DESC`
-      );
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/reportes") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      if (!canManageUsers(active)) return sendJson(res, 403, { error: "Tu perfil no puede generar reportes." });
-
-      const data = await readJson(req);
-      const tipo = String(data.tipo || data.type || "Operacional").trim();
-      const titulo = String(data.titulo || data.title || "Reporte operacional").trim();
-      const contenido = String(data.contenido || data.desc || "Reporte generado desde el panel operacional.").trim();
-      const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(data.fecha_generacion || data.dateInput || ""))
-        ? String(data.fecha_generacion || data.dateInput)
-        : new Date().toISOString().slice(0, 10);
-
-      if (!tipo || !titulo || !contenido) return sendJson(res, 400, { error: "Completa tipo, titulo y contenido del reporte." });
-
-      const [result] = await pool.query(
-        `INSERT INTO reportes (tipo, titulo, contenido, fecha_generacion, creado_por)
-         VALUES (?, ?, ?, ?, ?)`,
-        [tipo, titulo, contenido, fecha, active.id]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["REPORTE_CREADO", `Usuario ${active.dni} genero reporte ${titulo}`]
-      );
-
-      return sendJson(res, 201, { ok: true, id: result.insertId });
-    }
-
-    if (req.method === "PATCH" && url.pathname.startsWith("/api/reportes/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      if (!canManageUsers(active)) return sendJson(res, 403, { error: "Tu perfil no puede editar reportes." });
-
-      const id = Number(url.pathname.split("/").pop());
-      const data = await readJson(req);
-      const tipo = String(data.tipo || data.type || "").trim();
-      const titulo = String(data.titulo || data.title || "").trim();
-      const contenido = String(data.contenido || data.desc || "").trim();
-      const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(data.fecha_generacion || data.dateInput || ""))
-        ? String(data.fecha_generacion || data.dateInput)
-        : new Date().toISOString().slice(0, 10);
-
-      if (!id || !tipo || !titulo || !contenido) return sendJson(res, 400, { error: "Datos de reporte invalidos." });
-
-      const reportIdColumn = (await columnExists("reportes", "id")) ? "id" : "id_reporte";
-      await pool.query(
-        `UPDATE reportes
-         SET tipo = ?, titulo = ?, contenido = ?, fecha_generacion = ?
-         WHERE ${reportIdColumn} = ? AND eliminado = 0`,
-        [tipo, titulo, contenido, fecha, id]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["REPORTE_ACTUALIZADO", `Usuario ${active.dni} actualizo reporte ID ${id}`]
-      );
-
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === "DELETE" && url.pathname.startsWith("/api/reportes/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      if (!canManageUsers(active)) return sendJson(res, 403, { error: "Tu perfil no puede eliminar reportes." });
-
-      const id = Number(url.pathname.split("/").pop());
-      if (!id) return sendJson(res, 400, { error: "Reporte invalido." });
-
-      const reportIdColumn = (await columnExists("reportes", "id")) ? "id" : "id_reporte";
-      await pool.query(`UPDATE reportes SET eliminado = 1 WHERE ${reportIdColumn} = ?`, [id]);
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["REPORTE_ELIMINADO", `Usuario ${active.dni} elimino reporte ID ${id}`]
-      );
-      return sendJson(res, 200, { ok: true });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/solicitudes") {
-      const [rows] = await pool.query(
-        `SELECT id, codigo, ruta, hora, puerta, estado, tipo, motivo, origen_vuelo,
-                UNIX_TIMESTAMP(disponible_desde) * 1000 AS dueAt,
-                creado_en
-         FROM solicitudes_operativas
-         WHERE estado = 'Pendiente'
-         ORDER BY disponible_desde ASC, creado_en ASC`
-      );
-      return sendJson(res, 200, rows);
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/solicitudes") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      const data = await readJson(req);
-      const codigo = String(data.codigo || "").trim().toUpperCase();
-      const ruta = String(data.ruta || "").trim();
-      const hora = String(data.hora || "").trim();
-      const puerta = String(data.puerta || "").trim().toUpperCase();
-      const tipo = String(data.tipo || "Salida").trim() === "Llegada" ? "Llegada" : "Salida";
-      const motivo = String(data.motivo || "Solicitud operativa pendiente").trim();
-      const origen = String(data.origen_vuelo || data.sourceArrival || "").trim() || null;
-      const dueDate = Number(data.dueAt) ? new Date(Number(data.dueAt)) : new Date();
-
-      if (!codigo || !ruta || !hora || !puerta) return sendJson(res, 400, { error: "Datos incompletos para solicitud operativa." });
-
-      await pool.query(
-        `INSERT INTO solicitudes_operativas (codigo, ruta, hora, puerta, tipo, motivo, origen_vuelo, disponible_desde)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-          ruta = VALUES(ruta),
-          hora = VALUES(hora),
-          puerta = VALUES(puerta),
-          tipo = VALUES(tipo),
-          motivo = VALUES(motivo),
-          origen_vuelo = VALUES(origen_vuelo),
-          disponible_desde = VALUES(disponible_desde),
-          estado = 'Pendiente'`,
-        [codigo, ruta, hora, puerta, tipo, motivo, origen, dueDate]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["SOLICITUD_OPERATIVA", `Usuario ${active.dni} registro solicitud ${codigo}`]
-      );
-
-      const [[request]] = await pool.query(
-        `SELECT id, codigo, ruta, hora, puerta, estado, tipo, motivo, origen_vuelo,
-                UNIX_TIMESTAMP(disponible_desde) * 1000 AS dueAt
-         FROM solicitudes_operativas WHERE codigo = ?`,
-        [codigo]
-      );
-      return sendJson(res, 201, request);
-    }
-
-    if ((req.method === "PATCH" || req.method === "DELETE") && url.pathname.startsWith("/api/solicitudes/")) {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-      const id = Number(url.pathname.split("/").pop());
-      if (!id) return sendJson(res, 400, { error: "Solicitud invalida." });
-
-      const nextState = req.method === "DELETE" ? "Cerrada" : String((await readJson(req)).estado || "Cerrada").trim();
-      await pool.query("UPDATE solicitudes_operativas SET estado = ? WHERE id = ?", [nextState, id]);
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        ["SOLICITUD_ACTUALIZADA", `Usuario ${active.dni} cambio solicitud ID ${id} a ${nextState}`]
-      );
-      return sendJson(res, 200, { ok: true });
-    }
-    if (req.method === "GET" && url.pathname === "/api/role-tools") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const [rows] = await pool.query(
-        `SELECT ar.id, ar.actor, ar.tipo, ar.detalle, ar.datos, ar.creado_en,
-                u.nombre, u.apellido, u.dni, u.area
-         FROM acciones_rol ar
-         LEFT JOIN usuarios u ON u.id = ar.usuario_id
-         ORDER BY ar.creado_en DESC, ar.id DESC
-         LIMIT 80`
-      );
-
-      return sendJson(res, 200, rows.map(row => ({
-        ...row,
-        datos: typeof row.datos === "string" ? JSON.parse(row.datos || "{}") : (row.datos || {})
-      })));
-    }
-
-    if (req.method === "POST" && url.pathname === "/api/role-tools") {
-      const active = sessionUser(req);
-      if (!active) return sendJson(res, 401, { error: "No autorizado" });
-
-      const data = await readJson(req);
-      const actor = String(data.actor || "operador").trim().slice(0, 40);
-      const tipo = String(data.tipo || "ACCION_ROL").trim().slice(0, 80);
-      const detalle = String(data.detalle || "Accion operacional registrada").trim();
-      const datos = JSON.stringify(data.datos || {});
-
-      const [result] = await pool.query(
-        `INSERT INTO acciones_rol (usuario_id, actor, tipo, detalle, datos)
-         VALUES (?, ?, ?, ?, CAST(? AS JSON))`,
-        [active.id, actor, tipo, detalle, datos]
-      );
-
-      await pool.query(
-        "INSERT INTO bitacora (accion, detalle) VALUES (?, ?)",
-        [tipo, `Usuario ${active.dni} registro accion de rol: ${detalle}`]
-      );
-
-      return sendJson(res, 201, { ok: true, id: result.insertId });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/metricas") {
-      const [[llegadas]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE tipo = 'Llegada'");
-      const [[salidas]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE tipo = 'Salida'");
-      const [[retrasados]] = await pool.query("SELECT COUNT(*) AS total FROM vuelos WHERE estado = 'Retrasado'");
-      const [[incidencias]] = await pool.query("SELECT COUNT(*) AS total FROM incidencias WHERE estado = 'Abierta'");
-      const [[auditadas]] = await pool.query("SELECT COUNT(*) AS total FROM bitacora");
-
-      return sendJson(res, 200, {
-        llegadas: llegadas.total,
-        salidas: salidas.total,
-        retrasados: retrasados.total,
-        incidencias: incidencias.total,
-        auditadas: auditadas.total,
-        retrasoPromedio: retrasados.total ? 14 : 0
-      });
-    }
-
-    if (req.method === "GET" && url.pathname === "/api/bitacora") {
-      const [rows] = await pool.query("SELECT * FROM bitacora ORDER BY fecha_hora DESC, id DESC LIMIT 50");
-      return sendJson(res, 200, rows);
-    }
-
-    return sendJson(res, 404, { error: "Ruta no encontrada" });
-  } catch (error) {
-    console.error(error);
-    return sendJson(res, 500, { error: "Error interno del servidor" });
-  }
-});
-
-const port = Number(process.env.PORT || 4173);
-
-server.listen(port, "127.0.0.1", () => {
-  console.log(`AeroControl Ops con MySQL disponible en http://127.0.0.1:${port}`);
-  console.log(`Base de datos MySQL: ${dbConfig.database} en ${dbConfig.host}:${dbConfig.port}`);
-});
-
-
-
-
-
-
-
-
-
-
-
+  };
+}
+
+const isMainModule = Boolean(process.argv[1]) && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMainModule) {
+  const { default: mysql } = await import("mysql2/promise");
+  const dbConfig = {
+    host: process.env.DB_HOST || "127.0.0.1",
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "aerocontrol_ops",
+    waitForConnections: true,
+    connectionLimit: 10
+  };
+
+  const setupPool = await mysql.createPool({
+    ...dbConfig,
+    database: undefined
+  });
+
+  await setupPool.query(`
+    CREATE DATABASE IF NOT EXISTS ${dbConfig.database}
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci
+  `);
+  await setupPool.end();
+
+  const pool = await mysql.createPool(dbConfig);
+
+  // Allow previewing an existing database without reapplying demonstration seeds.
+  if (process.env.SKIP_DATABASE_INIT !== "1") await ensureDatabase(pool);
+
+  const server = createServer(createRequestHandler(pool, { publicDir: defaultPublicDir }));
+  const port = Number(process.env.PORT || 4173);
+
+  server.listen(port, "127.0.0.1", () => {
+    console.log(`AeroControl Ops con MySQL disponible en http://127.0.0.1:${port}`);
+    console.log(`Base de datos MySQL: ${dbConfig.database} en ${dbConfig.host}:${dbConfig.port}`);
+  });
+}

@@ -2352,7 +2352,7 @@
 
         <form class="auth-form hidden" id="registerForm" role="tabpanel" aria-labelledby="showRegister">
           <h3>Crear usuario operativo</h3>
-          <p class="hint" id="registerGeneralHint">Registra personal autorizado para operar el dashboard.</p>
+          <p class="hint" id="registerGeneralHint">Todo auto-registro inicia con rol Operador; un Administrador puede asignar otros roles.</p>
           <div class="form">
             <label for="registerName">Nombre
               <input id="registerName" name="name" required placeholder="Nombre" autocomplete="given-name" aria-required="true">
@@ -2374,8 +2374,6 @@
             <label for="registerRole">Rol
               <select id="registerRole" name="role" required aria-required="true">
                 <option value="Operador">Operador</option>
-                <option value="Supervisor">Supervisor</option>
-                <option value="Administrador">Administrador</option>
               </select>
             </label>
             <label for="registerArea">Área
@@ -2926,10 +2924,14 @@
     function actorKey(user = currentUser) {
           const area = String(user?.area || "").toLowerCase();
           const role = String(user?.rol || "").toLowerCase();
-          if (area.includes("gerencia") || area.includes("corpac")) return "gerencia";
-          if (area.includes("torre")) return "torre";
-          if (role.includes("administrador")) return "administrador";
-          if (role.includes("supervisor")) return "supervisor";
+          if (role.includes("administrador")) {
+            if (area.includes("gerencia") || area.includes("corpac")) return "gerencia";
+            return "administrador";
+          }
+          if (role.includes("supervisor")) {
+            if (area.includes("torre")) return "torre";
+            return "supervisor";
+          }
           return "operador";
         }
 
@@ -3477,7 +3479,7 @@
         if (activeFlightCount() >= LIVE_FLIGHT_LIMIT) {
           const candidates = flights.filter(f => f.estado !== "Finalizado");
           const selected = candidates[randomBetween(0, candidates.length - 1)];
-          if (selected) await markOfficialDeparture(selected.id, "Liberación automática por límite operativo");
+          if (selected && canUse("changeFlight")) await markOfficialDeparture(selected.id, "Liberación automática por límite operativo");
         } else {
           queueIncomingFlight("Solicitud generada por programación viva del aeropuerto");
         }
@@ -3947,15 +3949,7 @@
       });
     }
     function canManageUsers() {
-      const area = String(currentUser?.area || "").toLowerCase();
-      const role = String(currentUser?.rol || "").toLowerCase();
-      return (
-        role.includes("administrador") ||
-        role.includes("supervisor") ||
-        area.includes("gerencia") ||
-        area.includes("corpac") ||
-        area.includes("torre")
-      );
+      return actorKey() === "administrador";
     }
 
     function renderUsers() {
@@ -3999,13 +3993,18 @@
         container.innerHTML += `
           <div class="alert">
             <strong>Gestión restringida</strong>
-            <p>Tu perfil puede consultar usuarios, pero solo Administrador, Supervisor, Torre de control y Gerencia/CORPAC pueden modificarlos.</p>
+            <p>Solo el Administrador del sistema puede consultar o modificar cuentas de usuario.</p>
           </div>
         `;
       }
     }
 
     async function loadUsers() {
+      if (!canManageUsers()) {
+        users = [];
+        renderUsers();
+        return;
+      }
       const response = await fetch("/api/usuarios");
       if (!response.ok) {
         users = [];
